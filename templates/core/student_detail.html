@@ -1,6 +1,20 @@
 {% extends 'core/base.html' %}
 {% load courses %}
 {% block title %}{{ student.name }} - Student Profile - School ERP{% endblock %}
+{% block extra_css %}
+<style>
+.modal-footer .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+  border-width: 0.15em;
+}
+</style>
+{% endblock %}
 {% block content %}
 <div class="container-fluid">
   <!-- Header Card -->
@@ -477,47 +491,177 @@
 </div>
 
 <!-- Remove Enrollment Modal -->
-<div class="modal fade" id="removeEnrollmentModal" tabindex="-1">
-  <div class="modal-dialog modal-sm">
+<div class="modal fade" id="removeEnrollmentModal" tabindex="-1" aria-labelledby="removeEnrollmentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">
-          <i class="bi bi-exclamation-triangle"></i> Retirer l'inscription
+        <h5 class="modal-title" id="removeEnrollmentModalLabel">
+          <i class="bi bi-exclamation-triangle-fill"></i> Confirmer la suppression
         </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <p>Êtes-vous sûr de vouloir retirer <strong id="enrollmentCourseName"></strong> pour cet élève ?</p>
-        <div class="alert alert-warning small mb-0">
-          <i class="bi bi-info-circle"></i> Cette action ne supprimera pas les enregistrements de présence existants.
+        <div class="alert alert-warning">
+          <i class="bi bi-info-circle-fill"></i> Cette action est irréversible.
+        </div>
+        <p>Êtes-vous sûr de vouloir retirer l'élève du cours suivant ?</p>
+        <div class="card bg-light border-0 mt-3">
+          <div class="card-body">
+            <h6 class="mb-0" id="removeCourseName"><!-- Course name will be inserted here --></h6>
+          </div>
         </div>
       </div>
-      <form method="post" id="removeEnrollmentForm">
-        {% csrf_token %}
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-          <button type="submit" class="btn btn-danger">
-            <i class="bi bi-trash"></i> Retirer
-          </button>
-        </div>
-      </form>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="bi bi-x-circle"></i> Annuler
+        </button>
+        <button type="button" class="btn btn-danger" id="confirmRemoveBtn">
+          <i class="bi bi-trash"></i> Retirer du cours
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
 <script>
-  function removeEnrollment(enrollmentId, courseName) {
-    const modal = new bootstrap.Modal(
-      document.getElementById('removeEnrollmentModal')
-    );
+// Global variables to store enrollment removal info
+let enrollmentToRemove = null;
+let enrollmentCourseName = null;
 
-    document.getElementById('enrollmentCourseName').textContent = courseName;
+/**
+ * Open the removal confirmation modal
+ * @param {number} enrollmentId - The enrollment ID to remove
+ * @param {string} courseName - The course name for display
+ */
+function removeEnrollment(enrollmentId, courseName) {
+  enrollmentToRemove = enrollmentId;
+  enrollmentCourseName = courseName;
+  
+  // Update modal content
+  document.getElementById('removeCourseName').textContent = courseName;
+  
+  // Show the modal
+  const modal = new bootstrap.Modal(document.getElementById('removeEnrollmentModal'));
+  modal.show();
+}
 
-    const form = document.getElementById('removeEnrollmentForm');
-    form.action = enrollmentRemoveUrlTemplate.replace('/0/', `/${enrollmentId}/`);
-
-    modal.show();
+/**
+ * Handle the actual removal via AJAX
+ */
+document.addEventListener('DOMContentLoaded', function() {
+  const confirmBtn = document.getElementById('confirmRemoveBtn');
+  const modal = document.getElementById('removeEnrollmentModal');
+  
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async function() {
+      if (!enrollmentToRemove) return;
+      
+      // Disable button and show loading state
+      confirmBtn.disabled = true;
+      const originalText = confirmBtn.innerHTML;
+      confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Suppression...';
+      
+      try {
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                          getCookie('csrftoken');
+        
+        // Send AJAX request
+        const response = await fetch(`/enrollment/${enrollmentToRemove}/remove/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest',
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          // Close modal
+          const modalInstance = bootstrap.Modal.getInstance(modal);
+          modalInstance.hide();
+          
+          // Show success message
+          showAlert('success', data.message);
+          
+          // Reload page after short delay to show updated data
+          setTimeout(() => {
+            window.location.reload();
+          }, 1000);
+        } else {
+          showAlert('danger', data.message || 'Une erreur est survenue lors de la suppression.');
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = originalText;
+        }
+      } catch (error) {
+        console.error('Error removing enrollment:', error);
+        showAlert('danger', 'Une erreur est survenue. Veuillez réessayer.');
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = originalText;
+      }
+    });
   }
+  
+  // Reset state when modal is closed
+  modal.addEventListener('hidden.bs.modal', function() {
+    enrollmentToRemove = null;
+    enrollmentCourseName = null;
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = '<i class="bi bi-trash"></i> Retirer du cours';
+  });
+});
+
+/**
+ * Get CSRF token from cookies
+ */
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+
+/**
+ * Show alert message
+ */
+function showAlert(type, message) {
+  // Remove any existing alerts
+  const existingAlerts = document.querySelectorAll('.alert-dismissible');
+  existingAlerts.forEach(alert => alert.remove());
+  
+  // Create new alert
+  const alertDiv = document.createElement('div');
+  alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+  alertDiv.setAttribute('role', 'alert');
+  alertDiv.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  `;
+  
+  // Insert at top of container
+  const container = document.querySelector('.container-fluid');
+  if (container) {
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Scroll to top to show alert
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+      alertDiv.remove();
+    }, 5000);
+  }
+}
 
   // Load courses from backend (AJAX would be better but this works for demo)
   document.addEventListener('DOMContentLoaded', function() {

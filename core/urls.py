@@ -16,7 +16,7 @@ urlpatterns = [
     
     # Enrollment management
     path('students/<int:student_id>/enrollment/add/', views.enrollment_add, name='enrollment_add'),
-    path('students/<int:student_id>/enrollment/<int:enrollment_id>/remove/', views.enrollment_remove, name='enrollment_remove'),
+    path('enrollment/<int:enrollment_id>/remove/', views.enrollment_remove, name='enrollment_remove'),
     
     # Courses
     path('courses/', views.courses_list, name='courses_list'),

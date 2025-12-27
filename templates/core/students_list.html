@@ -9,67 +9,133 @@
     <div>
       <h1 class="h3 mb-0"><i class="bi bi-people-fill"></i> Gestion des élèves</h1>
       <p class="text-muted mt-2">
-        <strong>{{ students|length }}</strong> élèves actifs
-        <span class="badge bg-light text-dark ms-2">
-          <i class="bi bi-graph-up"></i> Plus {{ filter_count|default:0 }} avec filtres
-        </span>
+        {% if filters_active %}
+          <strong>{{ filtered_count }}</strong> sur <strong>{{ total_students }}</strong> élèves
+          <span class="badge bg-primary ms-2">Filtres actifs</span>
+        {% else %}
+          <strong>{{ students.paginator.count }}</strong> élèves actifs
+        {% endif %}
       </p>
     </div>
-    <div class="gap-2 d-flex">
-      <button class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#filterPanel">
-        <i class="bi bi-funnel"></i> Filtres
-      </button>
-      <a href="{% url 'core:student_create' %}" class="btn btn-primary">
-        <i class="bi bi-plus-lg"></i> Ajouter élève
-      </a>
-    </div>
+    <a href="{% url 'core:student_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Ajouter élève
+    </a>
   </div>
-
-  <!-- Alerts -->
-  {% if messages %}
-    {% for message in messages %}
-      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-        <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endif %}
 
   <!-- Filter Panel -->
-  <div class="collapse" id="filterPanel">
-    <div class="card border-0 shadow-sm mb-4">
-      <div class="card-body">
-        <form method="get" class="row g-3">
-          <div class="col-md-4">
-            <label for="search" class="form-label">
-              <i class="bi bi-search"></i> Rechercher
-            </label>
-            <input type="text" class="form-control" id="search" name="q" placeholder="Nom ou téléphone..." value="{{ request.GET.q }}">
-          </div>
-          <div class="col-md-4">
-            <label for="status" class="form-label">
-              <i class="bi bi-credit-card"></i> Statut de paiement
-            </label>
-            <select class="form-select" id="status" name="payment_status">
-              <option value="">-- Tous les statuts --</option>
-              <option value="ok" {% if request.GET.payment_status == 'ok' %}selected{% endif %}>✓ À jour</option>
-              <option value="partial" {% if request.GET.payment_status == 'partial' %}selected{% endif %}>⚠ Partiel</option>
-              <option value="unpaid" {% if request.GET.payment_status == 'unpaid' %}selected{% endif %}>✗ Impayé</option>
-            </select>
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">&nbsp;</label>
-            <div class="d-grid gap-2">
-              <button type="submit" class="btn btn-primary">
-                <i class="bi bi-search"></i> Appliquer filtres
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+      <h6 class="mb-0"><i class="bi bi-funnel"></i> Filtres de recherche</h6>
+      {% if filters_active %}
+        <a href="{% url 'core:students_list' %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x-circle"></i> Effacer filtres
+        </a>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      <form method="get" id="filterForm" class="row g-3">
+        <!-- Search -->
+        <div class="col-md-3">
+          <label for="search" class="form-label">
+            <i class="bi bi-search"></i> Rechercher
+          </label>
+          <input 
+            type="text" 
+            class="form-control" 
+            id="search" 
+            name="q" 
+            placeholder="Nom, téléphone, parent..." 
+            value="{{ request.GET.q }}"
+          >
+        </div>
+
+        <!-- Payment Status -->
+        <div class="col-md-3">
+          <label for="payment_status" class="form-label">
+            <i class="bi bi-credit-card"></i> Statut de paiement
+          </label>
+          <select class="form-select" id="payment_status" name="payment_status">
+            <option value="">-- Tous les statuts --</option>
+            <option value="ok" {% if request.GET.payment_status == 'ok' %}selected{% endif %}>
+              ✓ À jour
+            </option>
+            <option value="partial" {% if request.GET.payment_status == 'partial' %}selected{% endif %}>
+              ⚠ Partiel
+            </option>
+            <option value="unpaid" {% if request.GET.payment_status == 'unpaid' %}selected{% endif %}>
+              ✗ Impayé
+            </option>
+          </select>
+        </div>
+
+        <!-- Course Group Filter -->
+        <div class="col-md-3">
+          <label for="course_group" class="form-label">
+            <i class="bi bi-book"></i> Groupe de cours
+          </label>
+          <select class="form-select" id="course_group" name="course_group">
+            <option value="">-- Tous les groupes --</option>
+            {% for group in filter.filters.course_group.field.queryset %}
+              <option value="{{ group.id }}" {% if request.GET.course_group == group.id|stringformat:"s" %}selected{% endif %}>
+                {{ group.subject }} - {{ group.level }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Per Page -->
+        <div class="col-md-2">
+          <label for="per_page" class="form-label">
+            <i class="bi bi-list-ol"></i> Par page
+          </label>
+          <select id="per_page" name="per_page" class="form-select">
+            <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+          </select>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="col-md-1">
+          <label class="form-label">&nbsp;</label>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-search"></i>
+          </button>
+        </div>
+      </form>
     </div>
   </div>
+
+  <!-- Active Filters Display -->
+  {% if filters_active %}
+    <div class="mb-3">
+      <div class="d-flex gap-2 flex-wrap">
+        <small class="text-muted align-self-center">Filtres actifs:</small>
+        {% if request.GET.q %}
+          <span class="badge bg-light text-dark border">
+            Recherche: "{{ request.GET.q }}"
+            <a href="?{% for key, value in request.GET.items %}{% if key != 'q' %}{{ key }}={{ value }}&{% endif %}{% endfor %}" class="text-dark ms-1">×</a>
+          </span>
+        {% endif %}
+        {% if request.GET.payment_status %}
+          <span class="badge bg-light text-dark border">
+            Statut: 
+            {% if request.GET.payment_status == 'ok' %}À jour
+            {% elif request.GET.payment_status == 'partial' %}Partiel
+            {% else %}Impayé{% endif %}
+            <a href="?{% for key, value in request.GET.items %}{% if key != 'payment_status' %}{{ key }}={{ value }}&{% endif %}{% endfor %}" class="text-dark ms-1">×</a>
+          </span>
+        {% endif %}
+        {% if request.GET.course_group %}
+          <span class="badge bg-light text-dark border">
+            Groupe filtré
+            <a href="?{% for key, value in request.GET.items %}{% if key != 'course_group' %}{{ key }}={{ value }}&{% endif %}{% endfor %}" class="text-dark ms-1">×</a>
+          </span>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
 
   <!-- View Toggle Tabs -->
   <ul class="nav nav-tabs mb-3" role="tablist">
@@ -84,6 +150,35 @@
       </button>
     </li>
   </ul>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Remember view preference
+      const savedView = localStorage.getItem('studentListView') || 'grid';
+      const gridTab = document.getElementById('grid-tab');
+      const tableTab = document.getElementById('table-tab');
+      const gridView = document.getElementById('gridView');
+      const tableView = document.getElementById('tableView');
+
+      if (savedView === 'table') {
+        gridTab.classList.remove('active');
+        tableTab.classList.add('active');
+        gridView.classList.remove('show', 'active');
+        tableView.classList.add('show', 'active');
+      }
+
+      gridTab.addEventListener('click', () => localStorage.setItem('studentListView', 'grid'));
+      tableTab.addEventListener('click', () => localStorage.setItem('studentListView', 'table'));
+
+      // Auto-submit on select change
+      const autoSubmitSelects = document.querySelectorAll('#per_page, #payment_status, #course_group');
+      autoSubmitSelects.forEach(select => {
+        select.addEventListener('change', function() {
+          document.getElementById('filterForm').submit();
+        });
+      });
+    });
+  </script>
 
   <!-- Grid View -->
   <div class="tab-content">
@@ -105,8 +200,7 @@
                   {% with status=student.payment_status %}
                     <span class="badge rounded-pill" 
                           style="background-color:
-                            {% if status == 'OK' %}#28a745{% elif status == 'PARTIAL' %}#ffc107{% else %}#dc3545{% endif %};
-                                 margin-left: 1rem;">
+                            {% if status == 'OK' %}#28a745{% elif status == 'PARTIAL' %}#ffc107{% else %}#dc3545{% endif %};">
                       {% if status == 'OK' %}
                         <i class="bi bi-check-circle-fill"></i> Payé
                       {% elif status == 'PARTIAL' %}
@@ -198,11 +292,55 @@
             <div class="alert alert-info text-center py-5">
               <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.5;"></i>
               <p class="mb-0 mt-3">Aucun élève trouvé</p>
-              <small class="text-muted mt-2 d-block">Essayez d'ajuster vos filtres ou d'ajouter un nouvel élève</small>
+              {% if filters_active %}
+                <small class="text-muted mt-2 d-block">
+                  Essayez d'ajuster vos filtres ou 
+                  <a href="{% url 'core:students_list' %}">effacer tous les filtres</a>
+                </small>
+              {% else %}
+                <small class="text-muted mt-2 d-block">
+                  Commencez par ajouter un nouvel élève
+                </small>
+              {% endif %}
             </div>
           </div>
         {% endfor %}
       </div>
+
+      <!-- Pagination -->
+      {% if students.has_other_pages %}
+        <nav aria-label="Page navigation" class="mt-4">
+          <ul class="pagination justify-content-center">
+            {% if students.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ students.previous_page_number }}" aria-label="Previous">
+                  <span aria-hidden="true">&laquo;</span>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">&laquo;</span></li>
+            {% endif %}
+
+            {% for p in students.paginator.page_range %}
+              {% if p >= students.number|add:'-3' and p <= students.number|add:'3' %}
+                <li class="page-item {% if p == students.number %}active{% endif %}">
+                  <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ p }}">{{ p }}</a>
+                </li>
+              {% endif %}
+            {% endfor %}
+
+            {% if students.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ students.next_page_number }}" aria-label="Next">
+                  <span aria-hidden="true">&raquo;</span>
+                </a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">&raquo;</span></li>
+            {% endif %}
+          </ul>
+        </nav>
+      {% endif %}
     </div>
 
     <!-- Table View -->
@@ -313,6 +451,15 @@
   .nav-tabs .nav-link.active {
     color: #0d6efd;
     border-color: #0d6efd;
+  }
+
+  .badge a {
+    text-decoration: none;
+    font-weight: bold;
+  }
+
+  .badge a:hover {
+    text-decoration: underline;
   }
 </style>
 {% endblock %}

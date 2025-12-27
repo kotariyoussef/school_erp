@@ -6,15 +6,79 @@ from .models import Student, CourseGroup, Teacher, Room, Session
 
 
 class StudentFilter(django_filters.FilterSet):
-    q = django_filters.CharFilter(method='filter_q', label='Recherche', widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom ou parent...'}))
-    is_active = django_filters.BooleanFilter(field_name='is_active', label='Actif', widget=forms.Select(choices=[('', 'Tous'), (True, 'Oui'), (False, 'Non')]))
+    q = django_filters.CharFilter(
+        method='filter_q', 
+        label='Recherche', 
+        widget=forms.TextInput(attrs={
+            'class': 'form-control', 
+            'placeholder': 'Nom, téléphone ou parent...'
+        })
+    )
+    
+    payment_status = django_filters.ChoiceFilter(
+        method='filter_payment_status',
+        label='Statut de paiement',
+        choices=[
+            ('', '-- Tous les statuts --'),
+            ('ok', '✓ À jour'),
+            ('partial', '⚠ Partiel'),
+            ('unpaid', '✗ Impayé'),
+        ],
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    course_group = django_filters.ModelChoiceFilter(
+        field_name='enrollments',
+        queryset=CourseGroup.objects.filter(is_active=True),
+        label='Groupe de cours',
+        widget=forms.Select(attrs={
+            'class': 'form-select'
+        }),
+        empty_label='-- Tous les groupes --'
+    )
+    
+    is_active = django_filters.BooleanFilter(
+        field_name='is_active', 
+        label='Actif', 
+        widget=forms.Select(
+            choices=[('', 'Tous'), (True, 'Actifs'), (False, 'Inactifs')],
+            attrs={'class': 'form-select'}
+        )
+    )
 
     class Meta:
         model = Student
-        fields = ['q', 'is_active']
+        fields = ['q', 'payment_status', 'course_group', 'is_active']
 
     def filter_q(self, queryset, name, value):
-        return queryset.filter(Q(name__icontains=value) | Q(parent_contact__icontains=value) | Q(parent_name__icontains=value))
+        """Search across name, parent name, and contact info"""
+        if not value:
+            return queryset
+        return queryset.filter(
+            Q(name__icontains=value) | 
+            Q(parent_contact__icontains=value) | 
+            Q(parent_name__icontains=value) |
+            Q(phone__icontains=value)
+        )
+    
+    def filter_payment_status(self, queryset, name, value):
+        """Filter by payment status (requires calculating status for each student)"""
+        if not value:
+            return queryset
+        
+        # We need to filter in Python since payment_status is a method
+        # Get all students and filter by their payment status
+        student_ids = []
+        for student in queryset:
+            status = student.payment_status()
+            if value == 'ok' and status == 'OK':
+                student_ids.append(student.id)
+            elif value == 'partial' and status == 'PARTIAL':
+                student_ids.append(student.id)
+            elif value == 'unpaid' and status == 'UNPAID':
+                student_ids.append(student.id)
+        
+        return queryset.filter(id__in=student_ids)
 
 
 class CourseGroupFilter(django_filters.FilterSet):

@@ -101,7 +101,6 @@ def student_unpaid_search(request):
 	from django.utils import timezone
 	
 	q = request.GET.get('q', '').strip()
-	results = []
 	
 	# Get current month
 	current_month = timezone.now().date().replace(day=1)
@@ -144,6 +143,16 @@ def student_detail(request):
 	required = calculate_student_monthly_total(student)
 	enrollments = student.enrollment_set.filter(is_active=True).select_related('course_group')
 	groups = []
+	
+	# Get current month
+	current_month = timezone.now().date().replace(day=1)
+
+	paid = Payment.objects.filter(
+			student=student,
+			month_covered=current_month,
+			status='PAID'
+		).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+	required -= paid
 	for e in enrollments:
 		groups.append({'name': e.course_group.name, 'price': str(e.course_group.monthly_price)})
 
@@ -174,11 +183,58 @@ def cockpit(request):
 
 
 def students_list(request):
-	"""List all students with basic info"""
-	students = Student.objects.filter(is_active=True).prefetch_related('enrollment_set__course_group')
-	student_filter = StudentFilter(request.GET, queryset=students)
-	students = student_filter.qs
-	return render(request, 'core/students_list.html', {'students': students, 'filter': student_filter})
+    """List all students with filtering and pagination"""
+    
+    # Base queryset with optimizations
+    students_qs = Student.objects.filter(
+        is_active=True
+    ).prefetch_related(
+        'enrollment_set__course_group',
+        'payments'
+    ).select_related()
+    
+    # Apply filters
+    student_filter = StudentFilter(request.GET, queryset=students_qs)
+    filtered_qs = student_filter.qs.order_by('name')
+    
+    # Pagination
+    page = request.GET.get('page', 1)
+    per_page = request.GET.get('per_page', '25')
+    
+    try:
+        per_page = int(per_page)
+        if per_page not in [10, 25, 50, 100]:
+            per_page = 25
+    except (ValueError, TypeError):
+        per_page = 25
+    
+    paginator = Paginator(filtered_qs, per_page)
+    students = paginator.get_page(page)
+    
+    # Build querystring for pagination (exclude 'page' parameter)
+    qs_dict = request.GET.copy()
+    qs_dict.pop('page', None)
+    querystring = qs_dict.urlencode()
+    
+    # Check if any filters are active
+    filters_active = any([
+        request.GET.get('q'),
+        request.GET.get('payment_status'),
+        request.GET.get('course_group'),
+        request.GET.get('is_active') and request.GET.get('is_active') != '',
+    ])
+    
+    context = {
+        'students': students,
+        'filter': student_filter,
+        'per_page': per_page,
+        'querystring': querystring,
+        'filters_active': filters_active,
+        'total_students': students_qs.count(),
+        'filtered_count': filtered_qs.count(),
+    }
+    
+    return render(request, 'core/students_list.html', context)
 
 
 
@@ -711,13 +767,28 @@ def enrollment_add(request, student_id):
 
 
 @require_POST
-def enrollment_remove(request, student_id, enrollment_id):
-	"""Remove an enrollment"""
-	student = get_object_or_404(Student, pk=student_id)
-	enrollment = get_object_or_404(Enrollment, pk=enrollment_id, student=student)
-	
-	course_name = enrollment.course_group.name
-	enrollment.delete()
-	
-	messages.success(request, f'Inscription à {course_name} supprimée!')
-	return redirect('student_page', student_id=student_id)
+def enrollment_remove(request, enrollment_id):
+    """Remove an enrollment (AJAX endpoint)"""
+    enrollment = get_object_or_404(Enrollment, id=enrollment_id)
+    student = enrollment.student
+    course_name = enrollment.course_group.name
+    
+    # Store info before deletion
+    student_id = student.id
+    
+    # Delete the enrollment
+    enrollment.delete()
+    
+    # Return JSON response for AJAX
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            'success': True,
+            'message': f'L\'inscription au cours "{course_name}" a été retirée avec succès.',
+            'student_id': student_id,
+            'new_total': float(student.total_monthly_fees())
+        })
+    
+    # Fallback for non-AJAX requests
+    messages.success(request, f'L\'inscription au cours "{course_name}" a été retirée avec succès.')
+    return redirect('core:student_page', student_id=student_id)
+
