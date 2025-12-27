@@ -208,6 +208,7 @@ class TeacherAdmin(ImportExportModelAdmin):
 
 @admin.register(CourseGroup)
 class CourseGroupAdmin(ImportExportModelAdmin):
+
     resource_class = CourseGroupResource
     list_display = ('name', 'subject', 'level', 'schedule_display', 'room', 
                     'teacher', 'price_display', 'student_count', 'status_badge')
