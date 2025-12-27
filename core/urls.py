@@ -36,6 +36,7 @@ urlpatterns = [
     # Cashier
     path('cashier/payment/create/', views.payment_create, name='payment_create'),
     path('cashier/student-search/', views.student_search, name='student_search'),
+    path('cashier/student-unpaid-search/', views.student_unpaid_search, name='student_unpaid_search'),
     path('cashier/student-detail/', views.student_detail, name='student_detail'),
     
     # Payroll

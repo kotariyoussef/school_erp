@@ -13,9 +13,9 @@
                     <form method="post" id="payment-form">
                         {% csrf_token %}
 
-                        <!-- Student Search -->
+                        <!-- Student Search (Unpaid Only) -->
                         <div class="mb-3">
-                            <label for="student" class="form-label">Rechercher Élève</label>
+                            <label for="student" class="form-label">Rechercher Élève (Impayés seulement)</label>
                             <select id="student" name="student_id" style="width:100%" class="form-control" required></select>
                         </div>
 
@@ -59,7 +59,7 @@ $(document).ready(function () {
     $('#student').select2({
         placeholder: 'Tapez le nom de l\'élève...',
         ajax: {
-            url: '/cashier/student-search/',
+            url: '/cashier/student-unpaid-search/',
             dataType: 'json',
             delay: 250,
             data: function (params) {

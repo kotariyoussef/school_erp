@@ -96,6 +96,43 @@ def student_search(request):
 
 
 @require_GET
+def student_unpaid_search(request):
+	"""AJAX endpoint for Select2 student search filtered to unpaid students. Query param `q`."""
+	from django.utils import timezone
+	
+	q = request.GET.get('q', '').strip()
+	results = []
+	
+	# Get current month
+	current_month = timezone.now().date().replace(day=1)
+	
+	# Get all students or filter by name
+	if q:
+		students = Student.objects.filter(name__icontains=q, is_active=True)[:50]
+	else:
+		students = Student.objects.filter(is_active=True)[:50]
+	
+	# Filter to unpaid students only
+	unpaid_students = []
+	for s in students:
+		required = calculate_student_monthly_total(s)
+		paid = Payment.objects.filter(
+			student=s,
+			month_covered=current_month,
+			status='PAID'
+		).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+		
+		if paid < required:  # Student has unpaid amount
+			unpaid_students.append({
+				'id': s.id,
+				'text': f"{s.name} ({s.parent_name or s.parent_contact}) - Due: {required - paid} DH",
+				'due_amount': str(required - paid)
+			})
+	
+	return JsonResponse({'results': unpaid_students})
+
+
+@require_GET
 def student_detail(request):
 	"""Return student details including calculated amount due and enrollments."""
 	student_id = request.GET.get('id')

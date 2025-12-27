@@ -270,13 +270,6 @@ class Payment(models.Model):
         verbose_name = "Paiement"
         verbose_name_plural = "Paiements"
         ordering = ['-payment_date', '-created_at']
-        # constraints = [
-        #     models.UniqueConstraint(
-        #         fields=['student', 'month_covered'],
-        #         condition=models.Q(status='PAID'),
-        #         name='unique_paid_payment_per_month'
-        #     )
-        # ]
     
     def __str__(self):
         return f"Reçu {self.receipt_number} - {self.student.name} - {self.amount} DH"
@@ -287,7 +280,6 @@ class Payment(models.Model):
             self.month_covered = self.month_covered.replace(day=1)
 
         if not self.receipt_number:
-            from django.utils import timezone
             year = timezone.now().year
             last_payment = Payment.objects.filter(
                 receipt_number__startswith=f"REC{year}"
