@@ -1,0 +1,63 @@
+{% extends "core/base.html" %}
+
+{% block title %}Confirmation de Paiement WhatsApp{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-whatsapp"></i> Envoyer Confirmation de Paiement
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Payment Details -->
+                    <div class="alert alert-success">
+                        <h6><i class="bi bi-check-circle"></i> Paiement Enregistré</h6>
+                        <ul class="mb-0">
+                            <li>Élève: <strong>{{ student.name }}</strong></li>
+                            <li>Montant: <strong>{{ payment.amount }} DH</strong></li>
+                            <li>Reçu N°: <strong>{{ payment.receipt_number }}</strong></li>
+                            <li>Date: <strong>{{ payment.payment_date|date:"d/m/Y" }}</strong></li>
+                        </ul>
+                    </div>
+
+                    <!-- Message Preview -->
+                    <div class="mb-4">
+                        <label class="form-label">Message WhatsApp</label>
+                        <div class="alert alert-light border">
+                            <pre class="mb-0">{{ message }}</pre>
+                        </div>
+                    </div>
+
+                    <!-- Contact Info -->
+                    <div class="mb-4">
+                        <label class="form-label">Destinataire</label>
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-person-circle fs-1 text-primary me-3"></i>
+                            <div>
+                                <div><strong>{{ student.parent_name }}</strong></div>
+                                <div class="text-muted">
+                                    <i class="bi bi-phone"></i> {{ student.parent_contact }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="d-grid gap-2">
+                        <a href="{{ whatsapp_link }}" target="_blank" class="btn btn-success btn-lg">
+                            <i class="bi bi-whatsapp"></i> Envoyer via WhatsApp
+                        </a>
+                        <a href="{% url 'core:student_page' student.id %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Retour à la fiche élève
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -8,7 +8,7 @@ from decimal import Decimal
 from datetime import timedelta
 
 from .models import Student, Payment, Enrollment, Room, Teacher
-from .utils import _build_room_schedule, _build_teacher_schedule, _calculate_week_stats, get_dashboard_stats, generate_receipt_pdf, calculate_student_monthly_total, generate_sessions_from_coursegroups
+from .utils import WhatsAppMessageTemplates, WhatsAppUtils, _build_room_schedule, _build_teacher_schedule, _calculate_week_stats, get_dashboard_stats, generate_receipt_pdf, calculate_student_monthly_total, generate_sessions_from_coursegroups
 from .forms import SessionForm, StudentForm, EnrollmentForm
 from django.core.paginator import Paginator
 from .models import CourseGroup, Session, Attendance, SessionException
@@ -23,58 +23,71 @@ from django.views.decorators.http import require_POST
 
 
 def payment_create(request):
-	"""
-	Cashier view to create a payment. GET renders the form, POST creates the Payment
-	and returns a PDF receipt for download.
-	"""
-	if request.method == 'GET':
-		return render(request, 'core/payment_create.html', {
+    """
+    Enhanced cashier view with WhatsApp confirmation option
+    """
+    if request.method == 'GET':
+        return render(request, 'core/payment_create.html', {
             'default_student_id': request.GET.get('student_id')
         })
 
-	# POST -> create payment
-	if request.method == 'POST':
-		student_id = request.POST.get('student_id')
-		amount = request.POST.get('amount')
-		payment_method = request.POST.get('payment_method', 'CASH')
-		month_covered = request.POST.get('month_covered')
+    # POST -> create payment
+    if request.method == 'POST':
+        student_id = request.POST.get('student_id')
+        amount = request.POST.get('amount')
+        payment_method = request.POST.get('payment_method', 'CASH')
+        month_covered = request.POST.get('month_covered')
+        send_whatsapp = request.POST.get('send_whatsapp') == 'on'
 
-		if not student_id or not amount:
-			return HttpResponseBadRequest('Missing student or amount')
+        if not student_id or not amount:
+            return HttpResponseBadRequest('Missing student or amount')
 
-		student = get_object_or_404(Student, pk=student_id)
+        student = get_object_or_404(Student, pk=student_id)
 
-		try:
-			amount_dec = Decimal(amount)
-		except Exception:
-			return HttpResponseBadRequest('Montant invalide')
+        try:
+            amount_dec = Decimal(amount)
+        except Exception:
+            return HttpResponseBadRequest('Montant invalide')
 
-		# default month_covered to first day of current month
-		if not month_covered:
-			now = timezone.now().date()
-			month_covered = now.replace(day=1)
-		else:
-			try:
-				month_covered = datetime.strptime(month_covered, '%Y-%m-%d').date()
-			except Exception:
-				month_covered = timezone.now().date().replace(day=1)
+        # default month_covered to first day of current month
+        if not month_covered:
+            now = timezone.now().date()
+            month_covered = now.replace(day=1)
+        else:
+            try:
+                month_covered = datetime.strptime(month_covered, '%Y-%m-%d').date()
+            except Exception:
+                month_covered = timezone.now().date().replace(day=1)
 
-		payment = Payment.objects.create(
-			student=student,
-			amount=amount_dec,
-			payment_date=timezone.now().date(),
-			month_covered=month_covered,
-			status='PAID',
-			payment_method=payment_method,
-			created_by=request.user.get_username() if hasattr(request, 'user') and request.user.is_authenticated else ''
-		)
+        payment = Payment.objects.create(
+            student=student,
+            amount=amount_dec,
+            payment_date=timezone.now().date(),
+            month_covered=month_covered,
+            status='PAID',
+            payment_method=payment_method,
+            created_by=request.user.get_username() if hasattr(request, 'user') and request.user.is_authenticated else ''
+        )
 
-		# Generate receipt PDF
-		pdf_buffer = generate_receipt_pdf(payment)
+        # Generate receipt PDF
+        pdf_buffer = generate_receipt_pdf(payment)
+        
+        # If WhatsApp confirmation requested, redirect to WhatsApp confirmation page
+        if send_whatsapp and student.parent_contact:
+            # Save receipt temporarily (or provide download link)
+            response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="receipt_{payment.receipt_number}.pdf"'
+            
+            # Store payment ID in session for WhatsApp confirmation redirect
+            request.session['last_payment_id'] = payment.id
+            
+            messages.success(request, 'Paiement enregistré avec succès!')
+            return redirect('core:whatsapp_payment_confirmation', payment_id=payment.id)
 
-		response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
-		response['Content-Disposition'] = f'attachment; filename="receipt_{payment.receipt_number}.pdf"'
-		return response
+        response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="receipt_{payment.receipt_number}.pdf"'
+        return response
+
 
 
 @require_GET
@@ -962,3 +975,310 @@ def enrollment_remove(request, enrollment_id):
     messages.success(request, f'L\'inscription au cours "{course_name}" a été retirée avec succès.')
     return redirect('core:student_page', student_id=student_id)
 
+###############################  WHATSAPP INTEGRATION  #######################################
+
+@require_GET
+def whatsapp_payment_reminders(request):
+    """Generate WhatsApp links for payment reminders to unpaid students"""
+    from django.utils import timezone
+    
+    current_month = timezone.now().date().replace(day=1)
+    
+    # Get all active students
+    students = Student.objects.filter(is_active=True)
+    
+    # Build list of unpaid students with WhatsApp links
+    unpaid_contacts = []
+    
+    for student in students:
+        required = calculate_student_monthly_total(student)
+        paid = Payment.objects.filter(
+            student=student,
+            month_covered=current_month,
+            status='PAID'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        
+        due_amount = required - paid
+        
+        if due_amount > 0 and student.parent_contact:
+            # Prepare contact data
+            contact = {
+                'phone': student.parent_contact,
+                'name': student.parent_name or 'Parent',
+                'student_name': student.name,
+                'amount': str(due_amount),
+                'currency': 'DH',
+                'month': current_month.strftime('%B %Y'),
+            }
+            
+            # Generate personalized message
+            template = WhatsAppMessageTemplates.CUSTOMER_SERVICE['payment_reminder']
+            message = WhatsAppUtils.create_template_message(
+                template,
+                {
+                    'name': contact['name'],
+                    'amount': f"{contact['amount']} {contact['currency']}",
+                    'invoice_id': f"{student.id}-{current_month.strftime('%Y%m')}"
+                }
+            )
+            
+            # Generate WhatsApp link
+            whatsapp_link = WhatsAppUtils.generate_chat_link(
+                contact['phone'],
+                message
+            )
+            
+            contact['whatsapp_link'] = whatsapp_link
+            contact['message'] = message
+            contact['student'] = student
+            contact['due_amount'] = due_amount
+            
+            unpaid_contacts.append(contact)
+    
+    context = {
+        'unpaid_contacts': unpaid_contacts,
+        'total_unpaid': len(unpaid_contacts),
+        'current_month': current_month,
+    }
+    
+    return render(request, 'core/whatsapp_payment_reminders.html', context)
+
+
+@require_GET
+def whatsapp_absence_notifications(request):
+    """Generate WhatsApp links to notify parents of student absences"""
+    
+    # Get date parameter (default to today)
+    date_param = request.GET.get('date')
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            target_date = timezone.now().date()
+    else:
+        target_date = timezone.now().date()
+    
+    # Get all attendance records for the date where student was absent
+    absences = Attendance.objects.filter(
+        date=target_date,
+        is_present=False
+    ).select_related(
+        'student',
+        'course_group'
+    )
+    
+    # Build notification contacts
+    absence_contacts = []
+    
+    for absence in absences:
+        student = absence.student
+        
+        if student.parent_contact:
+            contact = {
+                'phone': student.parent_contact,
+                'name': student.parent_name or 'Parent',
+                'student_name': student.name,
+                'course_name': absence.course_group.name,
+                'date': target_date.strftime('%d/%m/%Y'),
+                'time': f"{absence.course_group.start_time} - {absence.course_group.end_time}",
+            }
+            
+            # Generate message
+            message = f"Bonjour {contact['name']},\n\n"
+            message += f"Nous vous informons que {contact['student_name']} était absent(e) "
+            message += f"au cours de {contact['course_name']} le {contact['date']}.\n\n"
+            message += "Si vous avez des questions, n'hésitez pas à nous contacter.\n\n"
+            message += "Cordialement,\nL'équipe pédagogique"
+            
+            # Generate WhatsApp link
+            whatsapp_link = WhatsAppUtils.generate_chat_link(
+                contact['phone'],
+                message
+            )
+            
+            contact['whatsapp_link'] = whatsapp_link
+            contact['message'] = message
+            contact['student'] = student
+            contact['absence'] = absence
+            
+            absence_contacts.append(contact)
+    
+    context = {
+        'absence_contacts': absence_contacts,
+        'total_absences': len(absence_contacts),
+        'target_date': target_date,
+    }
+    
+    return render(request, 'core/whatsapp_absence_notifications.html', context)
+
+
+@require_GET
+def whatsapp_bulk_announcements(request):
+    """Create bulk WhatsApp announcement links for all active students"""
+    
+    students = Student.objects.filter(is_active=True)
+    
+    # Build contacts list
+    contacts = []
+    for student in students:
+        if student.parent_contact:
+            contacts.append({
+                'phone': student.parent_contact,
+                'name': student.parent_name or 'Parent',
+                'student_name': student.name,
+            })
+    
+    # If POST, generate links with custom message
+    if request.method == 'POST':
+        message_template = request.POST.get('message_template', '')
+        
+        if message_template:
+            # Generate bulk links
+            bulk_links = WhatsAppUtils.generate_bulk_links(
+                contacts,
+                message_template
+            )
+            
+            context = {
+                'bulk_links': bulk_links,
+                'message_template': message_template,
+                'total_contacts': len(bulk_links),
+            }
+            
+            return render(request, 'core/whatsapp_bulk_results.html', context)
+    
+    # GET request - show form
+    context = {
+        'contacts': contacts,
+        'total_contacts': len(contacts),
+        'templates': {
+            'general': "Bonjour {name}, message général pour tous les parents...",
+            'event': "Bonjour {name}, nous organisons un événement le [DATE]. Votre enfant {student_name} est invité à participer.",
+            'closure': "Bonjour {name}, l'établissement sera fermé du [DATE] au [DATE]. Les cours reprendront le [DATE].",
+        }
+    }
+    
+    return render(request, 'core/whatsapp_bulk_announcements.html', context)
+
+
+@require_GET
+def whatsapp_payment_confirmation(request, payment_id):
+    """Generate WhatsApp link to send payment confirmation"""
+    
+    payment = get_object_or_404(Payment, pk=payment_id)
+    student = payment.student
+    
+    if not student.parent_contact:
+        messages.error(request, "Aucun numéro de téléphone disponible pour ce parent")
+        return redirect('core:student_page', student_id=student.id)
+    
+    # Generate confirmation message
+    message = f"Bonjour {student.parent_name or 'Parent'},\n\n"
+    message += f"Nous confirmons la réception de votre paiement:\n\n"
+    message += f"Montant: {payment.amount} DH\n"
+    message += f"Date: {payment.payment_date.strftime('%d/%m/%Y')}\n"
+    message += f"Reçu N°: {payment.receipt_number}\n"
+    message += f"Pour le mois de: {payment.month_covered.strftime('%B %Y')}\n\n"
+    message += "Merci pour votre confiance!\n\n"
+    message += "Cordialement,\nL'équipe administrative"
+    
+    # Generate WhatsApp link
+    whatsapp_link = WhatsAppUtils.generate_chat_link(
+        student.parent_contact,
+        message
+    )
+    
+    context = {
+        'payment': payment,
+        'student': student,
+        'whatsapp_link': whatsapp_link,
+        'message': message,
+    }
+    
+    return render(request, 'core/whatsapp_payment_confirmation.html', context)
+
+
+@require_GET
+def whatsapp_session_reminder(request, session_id):
+    """Generate WhatsApp links to remind students about upcoming session"""
+    
+    session = get_object_or_404(
+        Session.objects.select_related('group', 'group__teacher', 'group__room'),
+        pk=session_id
+    )
+    
+    students = session.group.students.filter(is_active=True)
+    
+    # Build reminder contacts
+    reminder_contacts = []
+    
+    for student in students:
+        if student.parent_contact:
+            contact = {
+                'phone': student.parent_contact,
+                'name': student.parent_name or 'Parent',
+                'student_name': student.name,
+                'course_name': session.group.name,
+                'date': session.date.strftime('%d/%m/%Y'),
+                'time': session.start_time.strftime('%H:%M'),
+                'room': session.group.room.name,
+            }
+            
+            # Use template
+            template = WhatsAppMessageTemplates.EDUCATION['class_reminder']
+            message = WhatsAppUtils.create_template_message(
+                template,
+                {
+                    'student_name': contact['student_name'],
+                    'subject': contact['course_name'],
+                    'date': f"{contact['date']} à {contact['time']}",
+                    'room': contact['room'],
+                }
+            )
+            
+            whatsapp_link = WhatsAppUtils.generate_chat_link(
+                contact['phone'],
+                message
+            )
+            
+            contact['whatsapp_link'] = whatsapp_link
+            contact['message'] = message
+            contact['student'] = student
+            
+            reminder_contacts.append(contact)
+    
+    context = {
+        'session': session,
+        'reminder_contacts': reminder_contacts,
+        'total_students': len(reminder_contacts),
+    }
+    
+    return render(request, 'core/whatsapp_session_reminder.html', context)
+
+
+@require_GET
+def whatsapp_generate_link_ajax(request):
+    """AJAX endpoint to generate a WhatsApp link on-demand"""
+    
+    phone = request.GET.get('phone')
+    message = request.GET.get('message')
+    use_web = request.GET.get('use_web', 'false') == 'true'
+    
+    if not phone:
+        return JsonResponse({'error': 'Phone number required'}, status=400)
+    
+    try:
+        whatsapp_link = WhatsAppUtils.generate_chat_link(
+            phone,
+            message,
+            use_web
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'whatsapp_link': whatsapp_link,
+            'phone': WhatsAppUtils.clean_phone_number(phone),
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+	

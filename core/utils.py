@@ -16,6 +16,10 @@ from .models import Student, Payment
 
 PAID_STATUSES = ('PAID', 'OK', 'CONFIRMED', 'COMPLETED', 'SETTLED')
 
+class SafeDict(dict):
+    def __missing__(self, key):
+        return f"{{{key}}}"
+
 
 # ==================== GESTION DES DATES ====================
 
@@ -786,3 +790,297 @@ def _calculate_week_stats(sessions, dates):
         })
     
     return stats
+
+
+"""
+WhatsApp Click-to-Chat Automation Utilities
+============================================
+Utilities for generating WhatsApp links and automating messaging.
+"""
+
+import urllib.parse
+from typing import Optional, Dict, List
+import re
+
+
+class WhatsAppUtils:
+    """Utility class for WhatsApp Click-to-Chat automation."""
+    
+    BASE_URL = "https://wa.me/"
+    WEB_URL = "https://web.whatsapp.com/send"
+    
+    @staticmethod
+    def clean_phone_number(phone: str) -> str:
+        """
+        Clean and format phone number for WhatsApp.
+        
+        Args:
+            phone: Phone number in any format
+            
+        Returns:
+            Cleaned phone number with only digits
+            
+        Example:
+            >>> WhatsAppUtils.clean_phone_number("+212 6 12 34 56 78")
+            '212612345678'
+        """
+        # Remove all non-digit characters
+        cleaned = re.sub(r'\D', '', phone)
+        
+        # Remove leading zeros
+        cleaned = cleaned.lstrip('0')
+        
+        return cleaned
+    
+    @staticmethod
+    def generate_chat_link(
+        phone: str,
+        message: Optional[str] = None,
+        use_web: bool = False
+    ) -> str:
+        """
+        Generate WhatsApp click-to-chat link.
+        
+        Args:
+            phone: Phone number with country code
+            message: Pre-filled message (optional)
+            use_web: Use WhatsApp Web instead of mobile (default: False)
+            
+        Returns:
+            Complete WhatsApp URL
+            
+        Example:
+            >>> WhatsAppUtils.generate_chat_link(
+            ...     "+212612345678",
+            ...     "Hello, I'm interested in your services"
+            ... )
+            'https://wa.me/212612345678?text=Hello%2C%20I%27m%20interested...'
+        """
+        cleaned_phone = WhatsAppUtils.clean_phone_number(phone)
+        
+        # Choose base URL
+        base_url = WhatsAppUtils.WEB_URL if use_web else WhatsAppUtils.BASE_URL
+        
+        # Build URL
+        if use_web:
+            url = f"{base_url}?phone={cleaned_phone}"
+        else:
+            url = f"{base_url}{cleaned_phone}"
+        
+        # Add message if provided
+        if message:
+            separator = "&" if use_web else "?"
+            encoded_message = urllib.parse.quote(message)
+            url += f"{separator}text={encoded_message}"
+        
+        return url
+    
+    @staticmethod
+    def generate_group_invite_link(invite_code: str) -> str:
+        """
+        Generate WhatsApp group invite link.
+        
+        Args:
+            invite_code: Group invite code
+            
+        Returns:
+            Complete group invite URL
+            
+        Example:
+            >>> WhatsAppUtils.generate_group_invite_link("ABC123XYZ")
+            'https://chat.whatsapp.com/ABC123XYZ'
+        """
+        return f"https://chat.whatsapp.com/{invite_code}"
+    
+    @staticmethod
+    def create_template_message(
+        template: str,
+        variables: Dict[str, str]
+    ) -> str:
+        """
+        Create message from template with variables.
+        
+        Args:
+            template: Message template with {variable} placeholders
+            variables: Dictionary of variable values
+            
+        Returns:
+            Formatted message
+            
+        Example:
+            >>> template = "Hello {name}, your order #{order_id} is ready!"
+            >>> variables = {"name": "John", "order_id": "12345"}
+            >>> WhatsAppUtils.create_template_message(template, variables)
+            'Hello John, your order #12345 is ready!'
+        """
+        return template.format_map(SafeDict(variables))
+    
+    @staticmethod
+    def generate_bulk_links(
+        contacts: List[Dict[str, str]],
+        message_template: str,
+        use_web: bool = False
+    ) -> List[Dict[str, str]]:
+        """
+        Generate multiple WhatsApp links for bulk messaging.
+        
+        Args:
+            contacts: List of contact dicts with 'phone' and other fields
+            message_template: Message template with {field} placeholders
+            use_web: Use WhatsApp Web links
+            
+        Returns:
+            List of contacts with added 'whatsapp_link' field
+            
+        Example:
+            >>> contacts = [
+            ...     {"phone": "+212612345678", "name": "Alice"},
+            ...     {"phone": "+212698765432", "name": "Bob"}
+            ... ]
+            >>> template = "Hi {name}, this is a test message"
+            >>> WhatsAppUtils.generate_bulk_links(contacts, template)
+            [
+                {
+                    'phone': '+212612345678',
+                    'name': 'Alice',
+                    'whatsapp_link': 'https://wa.me/212612345678?text=Hi%20Alice...'
+                },
+                ...
+            ]
+        """
+        results = []
+        
+        for contact in contacts:
+            # Create personalized message
+            message = WhatsAppUtils.create_template_message(
+                message_template,
+                contact
+            )
+            
+            # Generate link
+            link = WhatsAppUtils.generate_chat_link(
+                contact['phone'],
+                message,
+                use_web
+            )
+            
+            # Add link to contact info
+            contact_with_link = contact.copy()
+            contact_with_link['whatsapp_link'] = link
+            results.append(contact_with_link)
+        
+        return results
+
+
+class WhatsAppMessageTemplates:
+    """Pre-built message templates for common use cases."""
+    
+    # Customer service templates
+    CUSTOMER_SERVICE = {
+        'welcome': "Hello {name}! 👋 Welcome to {business_name}. How can we help you today?",
+        'order_confirmation': "Hi {name}, your order #{order_id} has been confirmed! Estimated delivery: {delivery_date}. Track your order: {tracking_url}",
+        'payment_reminder': "Hello {name}, this is a friendly reminder about your pending payment of {amount} for invoice #{invoice_id}. Please let us know if you have any questions.",
+        'appointment_reminder': "Hi {name}, this is a reminder of your appointment on {date} at {time}. Reply 'CONFIRM' to confirm or 'RESCHEDULE' to change.",
+    }
+    
+    # Marketing templates
+    MARKETING = {
+        'promotion': "🎉 Special offer for you, {name}! Get {discount}% off on {product}. Use code: {promo_code}. Valid until {expiry_date}.",
+        'new_product': "Hi {name}! 🚀 Check out our new {product_name}. You'll love it! {product_url}",
+        'abandoned_cart': "Hi {name}, you left {items_count} items in your cart. Complete your purchase now and get {discount}% off! {cart_url}",
+    }
+    
+    # Education templates
+    EDUCATION = {
+        'class_reminder': "Hi {student_name}, reminder: Your {subject} class is scheduled for {date} at {time} in {room}.",
+        'assignment_due': "Hello {student_name}, your {assignment_name} assignment is due on {due_date}. Don't forget to submit!",
+        'grade_notification': "Hi {student_name}, your grade for {subject} has been posted. Check your student portal for details.",
+    }
+    
+    # Healthcare templates
+    HEALTHCARE = {
+        'appointment_confirmation': "Hello {patient_name}, your appointment with Dr. {doctor_name} is confirmed for {date} at {time}. Location: {clinic_address}",
+        'prescription_ready': "Hi {patient_name}, your prescription is ready for pickup at {pharmacy_name}. Please bring your ID.",
+        'test_results': "Hello {patient_name}, your test results are ready. Please call us at {phone} to schedule a consultation with Dr. {doctor_name}.",
+    }
+    
+    @classmethod
+    def get_template(cls, category: str, template_name: str) -> str:
+        """
+        Get a specific message template.
+        
+        Args:
+            category: Template category (e.g., 'CUSTOMER_SERVICE')
+            template_name: Template name (e.g., 'welcome')
+            
+        Returns:
+            Message template string
+        """
+        category_templates = getattr(cls, category.upper(), {})
+        return category_templates.get(template_name, "")
+
+
+# Django Integration Example
+class DjangoWhatsAppMixin:
+    """
+    Mixin for Django models to add WhatsApp functionality.
+    Add this to your Django model to enable WhatsApp links.
+    """
+    
+    def get_whatsapp_link(self, message: Optional[str] = None) -> str:
+        """
+        Generate WhatsApp link for this model instance.
+        Assumes model has a 'phone' field.
+        """
+        if not hasattr(self, 'phone'):
+            raise AttributeError("Model must have a 'phone' field")
+        
+        return WhatsAppUtils.generate_chat_link(self.phone, message)
+    
+    def send_whatsapp_message(self, template_name: str, **kwargs):
+        """
+        Generate a WhatsApp link with a template message.
+        """
+        # Get model fields for template variables
+        context = {
+            field.name: getattr(self, field.name)
+            for field in self._meta.fields
+        }
+        context.update(kwargs)
+        
+        # Create message from template
+        message = template_name.format(**context)
+        
+        return self.get_whatsapp_link(message)
+
+
+# Django View Helper Functions
+def generate_whatsapp_button_html(
+    phone: str,
+    message: Optional[str] = None,
+    button_text: str = "Chat on WhatsApp",
+    css_class: str = "btn btn-success"
+) -> str:
+    """
+    Generate HTML for a WhatsApp button.
+    
+    Args:
+        phone: Phone number
+        message: Pre-filled message
+        button_text: Button label
+        css_class: CSS classes for button
+        
+    Returns:
+        HTML string for button
+    """
+    link = WhatsAppUtils.generate_chat_link(phone, message)
+    return f'''
+    <a href="{link}" 
+       target="_blank" 
+       rel="noopener noreferrer"
+       class="{css_class}">
+        <i class="bi bi-whatsapp"></i> {button_text}
+    </a>
+    '''
+
+

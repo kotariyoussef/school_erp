@@ -43,5 +43,38 @@ urlpatterns = [
     
     # Payroll
     path('payroll/teacher/', views.teacher_payroll, name='teacher_payroll'),
+
+    # WhatsApp Integration
+    
+    # WhatsApp Payment Reminders
+    path('whatsapp/payment-reminders/', 
+         views.whatsapp_payment_reminders, 
+         name='whatsapp_payment_reminders'),
+    
+    # WhatsApp Absence Notifications
+    path('whatsapp/absence-notifications/', 
+         views.whatsapp_absence_notifications, 
+         name='whatsapp_absence_notifications'),
+    
+    # WhatsApp Bulk Announcements
+    path('whatsapp/bulk-announcements/', 
+         views.whatsapp_bulk_announcements, 
+         name='whatsapp_bulk_announcements'),
+    
+    # WhatsApp Payment Confirmation
+    path('whatsapp/payment-confirmation/<int:payment_id>/', 
+         views.whatsapp_payment_confirmation, 
+         name='whatsapp_payment_confirmation'),
+    
+    # WhatsApp Session Reminder
+    path('whatsapp/session-reminder/<int:session_id>/', 
+         views.whatsapp_session_reminder, 
+         name='whatsapp_session_reminder'),
+    
+    # WhatsApp AJAX Link Generator
+    path('whatsapp/generate-link/', 
+         views.whatsapp_generate_link_ajax, 
+         name='whatsapp_generate_link_ajax'),
+
 ]
 

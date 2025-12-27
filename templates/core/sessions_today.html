@@ -294,6 +294,11 @@
                       <i class="bi bi-check2-circle"></i>
                     </a>
                   </div>
+                  <a href="{% url 'core:whatsapp_session_reminder' session.id %}" 
+                    class="btn btn-sm btn-outline-success" 
+                    title="Envoyer rappel WhatsApp">
+                      <i class="bi bi-whatsapp"></i> Rappeler
+                  </a>
                 </td>
               </tr>
             {% endfor %}

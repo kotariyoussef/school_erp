@@ -1,0 +1,124 @@
+{% extends "core/base.html" %}
+
+{% block title %}Rappel de Session WhatsApp{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-whatsapp text-success"></i> Rappel de Session</h2>
+            <p class="text-muted">Envoyer un rappel pour la session à venir</p>
+        </div>
+    </div>
+
+    <!-- Session Info -->
+    <div class="card mb-4">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0"><i class="bi bi-calendar-event"></i> Informations de la Session</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cours:</strong> {{ session.group.name }}</p>
+                    <p><strong>Date:</strong> {{ session.date|date:"d/m/Y" }}</p>
+                    <p><strong>Heure:</strong> {{ session.start_time }} - {{ session.end_time }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Salle:</strong> {{ session.group.room.name }}</p>
+                    <p><strong>Professeur:</strong> {{ session.group.teacher.name }}</p>
+                    <p><strong>Élèves:</strong> {{ total_students }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Send to All Button -->
+    <div class="mb-4">
+        <button class="btn btn-success btn-lg" id="send-all-btn">
+            <i class="bi bi-whatsapp"></i> Envoyer à Tous ({{ total_students }})
+        </button>
+    </div>
+
+    <!-- Students List -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-people"></i> Liste des Élèves</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Élève</th>
+                            <th>Parent</th>
+                            <th>Téléphone</th>
+                            <th>Message</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in reminder_contacts %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ contact.student_name }}</td>
+                            <td>{{ contact.name }}</td>
+                            <td>{{ contact.phone }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#modal{{ forloop.counter }}">
+                                    <i class="bi bi-eye"></i> Voir
+                                </button>
+                            </td>
+                            <td>
+                                <a href="{{ contact.whatsapp_link }}" 
+                                   target="_blank" 
+                                   class="btn btn-success btn-sm whatsapp-link">
+                                    <i class="bi bi-whatsapp"></i> Envoyer
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Message Modal -->
+                        <div class="modal fade" id="modal{{ forloop.counter }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Message pour {{ contact.name }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <pre class="bg-light p-3 rounded">{{ contact.message }}</pre>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-success">
+                                            <i class="bi bi-whatsapp"></i> Envoyer
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('send-all-btn').addEventListener('click', function() {
+    if (!confirm('Envoyer le rappel à tous les {{ total_students }} élèves?')) {
+        return;
+    }
+    
+    const links = document.querySelectorAll('.whatsapp-link');
+    links.forEach((link, index) => {
+        setTimeout(() => {
+            window.open(link.href, '_blank');
+        }, index * 500);
+    });
+});
+</script>
+{% endblock %}

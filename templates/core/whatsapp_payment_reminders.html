@@ -1,0 +1,136 @@
+<!-- ============================================ -->
+{% extends "core/base.html" %}
+
+{% block title %}Rappels de Paiement WhatsApp{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-whatsapp text-success"></i> Rappels de Paiement WhatsApp</h2>
+            <p class="text-muted">Envoyez des rappels de paiement aux parents d'élèves impayés</p>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Impayés</div>
+                <div class="kpi-value text-danger">{{ total_unpaid }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">Mois Courant</div>
+                <div class="kpi-value text-primary">{{ current_month|date:"F Y" }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">Action Rapide</div>
+                <button class="btn btn-success mt-2" id="open-all-btn">
+                    <i class="bi bi-whatsapp"></i> Ouvrir Tous
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unpaid Students List -->
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Liste des Impayés</h5>
+        </div>
+        <div class="card-body">
+            {% if unpaid_contacts %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Élève</th>
+                            <th>Parent</th>
+                            <th>Téléphone</th>
+                            <th>Montant Dû</th>
+                            <th>Message</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in unpaid_contacts %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'core:student_page' contact.student.id %}">
+                                    {{ contact.student_name }}
+                                </a>
+                            </td>
+                            <td>{{ contact.name }}</td>
+                            <td>
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-phone"></i> {{ contact.phone }}
+                                </span>
+                            </td>
+                            <td>
+                                <strong class="text-danger">{{ contact.due_amount }} DH</strong>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#messageModal{{ forloop.counter }}">
+                                    <i class="bi bi-eye"></i> Voir
+                                </button>
+                            </td>
+                            <td>
+                                <a href="{{ contact.whatsapp_link }}" 
+                                   target="_blank" 
+                                   class="btn btn-success btn-sm whatsapp-link">
+                                    <i class="bi bi-whatsapp"></i> Envoyer
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Message Modal -->
+                        <div class="modal fade" id="messageModal{{ forloop.counter }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Message pour {{ contact.name }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <pre class="bg-light p-3 rounded">{{ contact.message }}</pre>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                        <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-success">
+                                            <i class="bi bi-whatsapp"></i> Envoyer
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> Aucun paiement en retard pour le mois en cours!
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('open-all-btn').addEventListener('click', function() {
+    const links = document.querySelectorAll('.whatsapp-link');
+    links.forEach((link, index) => {
+        setTimeout(() => {
+            window.open(link.href, '_blank');
+        }, index * 500); // 500ms delay between each
+    });
+});
+</script>
+{% endblock %}

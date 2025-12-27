@@ -1,0 +1,121 @@
+{% extends "core/base.html" %}
+
+{% block title %}Notifications d'Absence WhatsApp{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2><i class="bi bi-whatsapp text-success"></i> Notifications d'Absence</h2>
+            <p class="text-muted">Informez les parents des absences de leurs enfants</p>
+        </div>
+    </div>
+
+    <!-- Date Selector -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-8">
+                            <label class="form-label">Date</label>
+                            <input type="date" class="form-control" name="date" 
+                                   value="{{ target_date|date:'Y-m-d' }}">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-search"></i> Rechercher
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="kpi-card">
+                <div class="kpi-label">Total Absences</div>
+                <div class="kpi-value text-warning">{{ total_absences }}</div>
+                <small class="text-muted">{{ target_date|date:"d/m/Y" }}</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Absences List -->
+    <div class="card">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0"><i class="bi bi-person-x"></i> Absences du {{ target_date|date:"d/m/Y" }}</h5>
+        </div>
+        <div class="card-body">
+            {% if absence_contacts %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Élève</th>
+                            <th>Parent</th>
+                            <th>Cours</th>
+                            <th>Heure</th>
+                            <th>Message</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contact in absence_contacts %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{{ contact.student_name }}</td>
+                            <td>{{ contact.name }}</td>
+                            <td>
+                                <span class="badge bg-info">{{ contact.course_name }}</span>
+                            </td>
+                            <td>{{ contact.time }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#absenceModal{{ forloop.counter }}">
+                                    <i class="bi bi-eye"></i> Voir
+                                </button>
+                            </td>
+                            <td>
+                                <a href="{{ contact.whatsapp_link }}" 
+                                   target="_blank" 
+                                   class="btn btn-success btn-sm">
+                                    <i class="bi bi-whatsapp"></i> Notifier
+                                </a>
+                            </td>
+                        </tr>
+
+                        <!-- Message Modal -->
+                        <div class="modal fade" id="absenceModal{{ forloop.counter }}" tabindex="-1">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Notification pour {{ contact.name }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <pre class="bg-light p-3 rounded">{{ contact.message }}</pre>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                        <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-success">
+                                            <i class="bi bi-whatsapp"></i> Envoyer
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Aucune absence enregistrée pour cette date.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

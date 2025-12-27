@@ -224,6 +224,33 @@
             </li>
 
             <li class="nav-item">
+                <a class="nav-link {% active_if 'whatsapp_payment_reminders' 'whatsapp_absence_notifications' 'whatsapp_bulk_announcements' %}"
+                href="#" data-bs-toggle="collapse" data-bs-target="#whatsapp-submenu">
+                    <i class="bi bi-whatsapp"></i> WhatsApp <i class="bi bi-chevron-down float-end"></i>
+                </a>
+                <ul class="collapse nav flex-column ps-4" id="whatsapp-submenu">
+                    <li class="nav-item">
+                        <a class="nav-link {% active_if 'whatsapp_payment_reminders' %}"
+                        href="{% url 'core:whatsapp_payment_reminders' %}">
+                            <i class="bi bi-cash-coin"></i> Rappels de paiement
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% active_if 'whatsapp_absence_notifications' %}"
+                        href="{% url 'core:whatsapp_absence_notifications' %}">
+                            <i class="bi bi-person-x"></i> Notifications d'absence
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% active_if 'whatsapp_bulk_announcements' %}"
+                        href="{% url 'core:whatsapp_bulk_announcements' %}">
+                            <i class="bi bi-megaphone"></i> Annonces groupées
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <li class="nav-item">
                 <a class="nav-link" href="/admin/">
                     <i class="bi bi-gear"></i> Admin
                 </a>

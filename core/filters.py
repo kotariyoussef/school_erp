@@ -92,9 +92,35 @@ class CourseGroupFilter(django_filters.FilterSet):
 
 
 class TeacherFilter(django_filters.FilterSet):
-    name = django_filters.CharFilter(field_name='name', lookup_expr='icontains', label='Nom', widget=forms.TextInput(attrs={'class':'form-control'}))
-    min_rate = django_filters.NumberFilter(field_name='hourly_rate', lookup_expr='gte', label='Min tarif', widget=forms.NumberInput(attrs={'class':'form-control'}))
-    max_rate = django_filters.NumberFilter(field_name='hourly_rate', lookup_expr='lte', label='Max tarif', widget=forms.NumberInput(attrs={'class':'form-control'}))
+    name = django_filters.CharFilter(
+        field_name='name',
+        lookup_expr='icontains',
+        label='Nom',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Nom du professeur'
+        })
+    )
+
+    min_rate = django_filters.NumberFilter(
+        field_name='hourly_rate',
+        lookup_expr='gte',
+        label='Min tarif',
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Tarif minimum'
+        })
+    )
+
+    max_rate = django_filters.NumberFilter(
+        field_name='hourly_rate',
+        lookup_expr='lte',
+        label='Max tarif',
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Tarif maximum'
+        })
+    )
 
     class Meta:
         model = Teacher
