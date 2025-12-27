@@ -72,6 +72,7 @@
                             <td>{{ contact.time }}</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-secondary" 
+                                        type="button"
                                         data-bs-toggle="modal" 
                                         data-bs-target="#absenceModal{{ forloop.counter }}">
                                     <i class="bi bi-eye"></i> Voir
@@ -80,36 +81,24 @@
                             <td>
                                 <a href="{{ contact.whatsapp_link }}" 
                                    target="_blank" 
-                                   class="btn btn-success btn-sm">
+                                   class="btn btn-success btn-sm whatsapp-link">
                                     <i class="bi bi-whatsapp"></i> Notifier
                                 </a>
                             </td>
                         </tr>
-
-                        <!-- Message Modal -->
-                        <div class="modal fade" id="absenceModal{{ forloop.counter }}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Notification pour {{ contact.name }}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <pre class="bg-light p-3 rounded">{{ contact.message }}</pre>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-                                        <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-success">
-                                            <i class="bi bi-whatsapp"></i> Envoyer
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Bulk Action -->
+            {% if absence_contacts|length > 1 %}
+            <div class="mt-3">
+                <button type="button" class="btn btn-success" id="send-all-btn">
+                    <i class="bi bi-whatsapp"></i> Notifier Tous ({{ absence_contacts|length }})
+                </button>
+            </div>
+            {% endif %}
             {% else %}
             <div class="alert alert-info">
                 <i class="bi bi-info-circle"></i> Aucune absence enregistrée pour cette date.
@@ -118,4 +107,89 @@
         </div>
     </div>
 </div>
+
+<!-- Modals - Place outside the table to avoid nesting issues -->
+{% for contact in absence_contacts %}
+<div class="modal fade" id="absenceModal{{ forloop.counter }}" tabindex="-1" 
+     aria-labelledby="modalLabel{{ forloop.counter }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel{{ forloop.counter }}">
+                    Notification pour {{ contact.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Élève:</strong> {{ contact.student_name }}<br>
+                    <strong>Parent:</strong> {{ contact.name }}<br>
+                    <strong>Téléphone:</strong> {{ contact.phone }}
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <strong>Message WhatsApp:</strong>
+                </div>
+                <div class="bg-light p-3 rounded border" style="white-space: pre-wrap; font-family: system-ui;">{{ contact.message }}</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Fermer
+                </button>
+                <a href="{{ contact.whatsapp_link }}" 
+                   target="_blank" 
+                   class="btn btn-success"
+                   data-bs-dismiss="modal">
+                    <i class="bi bi-whatsapp"></i> Envoyer via WhatsApp
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Send all WhatsApp notifications
+    $('#send-all-btn').on('click', function() {
+        const total = {{ absence_contacts|length }};
+        
+        if (!confirm(`Voulez-vous envoyer ${total} notifications d'absence via WhatsApp?\n\nCela ouvrira ${total} onglets avec un délai de 500ms entre chaque.`)) {
+            return;
+        }
+        
+        const links = document.querySelectorAll('.whatsapp-link');
+        let count = 0;
+        
+        links.forEach((link, index) => {
+            setTimeout(() => {
+                window.open(link.href, '_blank');
+                count++;
+                
+                // Update button text with progress
+                $('#send-all-btn').html(`<i class="bi bi-hourglass-split"></i> Envoi ${count}/${total}...`);
+                
+                // Reset button when done
+                if (count === total) {
+                    setTimeout(() => {
+                        $('#send-all-btn').html('<i class="bi bi-check-circle"></i> Envoyé!');
+                        setTimeout(() => {
+                            $('#send-all-btn').html('<i class="bi bi-whatsapp"></i> Notifier Tous (' + total + ')');
+                        }, 2000);
+                    }, 500);
+                }
+            }, index * 500);
+        });
+    });
+    
+    // Optional: Track which links were clicked
+    $('.whatsapp-link').on('click', function() {
+        $(this).removeClass('btn-success').addClass('btn-outline-success');
+        $(this).html('<i class="bi bi-check"></i> Envoyé');
+    });
+});
+</script>
 {% endblock %}

@@ -498,16 +498,23 @@ function getCookie(name) {
 </script>
 
 <style>
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 .schedule-container {
+  width: 100%;
   overflow-x: auto;
-  max-height: 70vh;
   overflow-y: auto;
+  position: relative;
 }
 
 .schedule-table {
-  min-width: 100%;
+  width: 100%;
+  min-width: 1100px; /* controlled minimum */
+  table-layout: fixed;
   border-collapse: separate;
-  border-spacing: 0;
 }
 
 .sticky-header {
@@ -520,11 +527,14 @@ function getCookie(name) {
 .row-header-cell {
   position: sticky;
   left: 0;
-  z-index: 5;
-  background-color: #fff;
+  width: 180px;
   min-width: 180px;
-  vertical-align: top;
-  padding: 1rem;
+  max-width: 180px;
+  background: #fff;
+  z-index: 6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sticky-header .row-header-cell {
@@ -533,9 +543,9 @@ function getCookie(name) {
 }
 
 .day-header {
-  min-width: 200px;
-  padding: 1rem;
-  vertical-align: top;
+  width: 14.28%; /* 100 / 7 days */
+  min-width: 120px;
+  max-width: 180px;
 }
 
 .today-column {
@@ -619,14 +629,13 @@ function getCookie(name) {
 
 /* Responsive */
 @media (max-width: 768px) {
-  .day-header {
-    min-width: 150px;
-  }
   
   .session-block {
     font-size: 0.75rem;
     padding: 0.5rem;
   }
 }
+
+
 </style>
 {% endblock %}

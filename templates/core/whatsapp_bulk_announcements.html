@@ -53,13 +53,10 @@
                 <div class="mb-3">
                     <label class="form-label">Message</label>
                     <textarea class="form-control" name="message_template" 
-                              id="message-template" rows="6" required
-                              placeholder="Saisissez votre message ici...
-                              
-Variables disponibles:
-{name} - Nom du parent
-{student_name} - Nom de l'élève"></textarea>
+                              id="message-template" rows="8" required
+                              placeholder="Saisissez votre message ici...&#10;&#10;Variables disponibles:&#10;{name} - Nom du parent&#10;{student_name} - Nom de l'élève"></textarea>
                     <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> 
                         Variables: <code>{name}</code> pour le parent, 
                         <code>{student_name}</code> pour l'élève
                     </small>
@@ -67,7 +64,7 @@ Variables disponibles:
 
                 <!-- Preview -->
                 <div class="mb-3">
-                    <label class="form-label">Aperçu (Exemple)</label>
+                    <label class="form-label">Aperçu (Exemple avec Fatima et Ahmed)</label>
                     <div class="alert alert-light border" id="preview">
                         <em class="text-muted">L'aperçu s'affichera ici...</em>
                     </div>
@@ -83,11 +80,12 @@ Variables disponibles:
     <!-- Contacts List -->
     <div class="card">
         <div class="card-header">
-            <h5 class="mb-0"><i class="bi bi-people"></i> Liste des Contacts</h5>
+            <h5 class="mb-0"><i class="bi bi-people"></i> Liste des Contacts ({{ total_contacts }})</h5>
         </div>
         <div class="card-body">
+            {% if total_contacts > 0 %}
             <div class="table-responsive">
-                <table class="table table-sm">
+                <table class="table table-sm table-hover">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -102,18 +100,29 @@ Variables disponibles:
                             <td>{{ forloop.counter }}</td>
                             <td>{{ contact.name }}</td>
                             <td>{{ contact.student_name }}</td>
-                            <td>{{ contact.phone }}</td>
+                            <td><small>{{ contact.phone }}</small></td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle"></i> Aucun contact disponible.
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
-const templates = {{ templates|safe }};
+const templates = {
+    'general': "Bonjour {name},\n\nMessage général pour tous les parents...\n\nCordialement,\nL'équipe pédagogique",
+    'event': "Bonjour {name},\n\nNous organisons un événement le [DATE]. Votre enfant {student_name} est invité à participer.\n\nCordialement,\nL'équipe pédagogique",
+    'closure': "Bonjour {name},\n\nL'établissement sera fermé du [DATE DÉBUT] au [DATE FIN]. Les cours reprendront le [DATE REPRISE].\n\nCordialement,\nL'administration"
+};
 
 function setTemplate(type) {
     const template = templates[type];
@@ -124,12 +133,15 @@ function setTemplate(type) {
 function updatePreview() {
     const message = document.getElementById('message-template').value;
     const preview = message
-        .replace('{name}', '<strong>Ahmed</strong>')
-        .replace('{student_name}', '<strong>Fatima</strong>')
+        .replace(/{name}/g, '<strong>Ahmed</strong>')
+        .replace(/{student_name}/g, '<strong>Fatima</strong>')
         .replace(/\n/g, '<br>');
-    document.getElementById('preview').innerHTML = preview;
+    document.getElementById('preview').innerHTML = preview || '<em class="text-muted">L\'aperçu s\'affichera ici...</em>';
 }
 
-document.getElementById('message-template').addEventListener('input', updatePreview);
+// Update preview on input
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('message-template').addEventListener('input', updatePreview);
+});
 </script>
 {% endblock %}

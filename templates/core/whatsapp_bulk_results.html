@@ -14,7 +14,7 @@
     <!-- Action Buttons -->
     <div class="row mb-4">
         <div class="col">
-            <button class="btn btn-success btn-lg" id="open-all-btn">
+            <button class="btn btn-success btn-lg me-2" id="open-all-btn" type="button">
                 <i class="bi bi-whatsapp"></i> Ouvrir Tous les Liens
             </button>
             <a href="{% url 'core:whatsapp_bulk_announcements' %}" class="btn btn-secondary btn-lg">
@@ -47,6 +47,7 @@
                             <td>{{ link.phone }}</td>
                             <td>
                                 <button class="btn btn-sm btn-outline-secondary" 
+                                        type="button"
                                         data-bs-toggle="modal" 
                                         data-bs-target="#msgModal{{ forloop.counter }}">
                                     <i class="bi bi-eye"></i> Voir
@@ -60,21 +61,6 @@
                                 </a>
                             </td>
                         </tr>
-
-                        <!-- Message Modal -->
-                        <div class="modal fade" id="msgModal{{ forloop.counter }}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Message pour {{ link.name }}</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <pre class="bg-light p-3 rounded">{{ link.whatsapp_link|urlencode }}</pre>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                         {% endfor %}
                     </tbody>
                 </table>
@@ -83,17 +69,80 @@
     </div>
 </div>
 
+<!-- Message Modals -->
+{% for link in bulk_links %}
+<div class="modal fade" id="msgModal{{ forloop.counter }}" tabindex="-1" 
+     aria-labelledby="modalLabel{{ forloop.counter }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalLabel{{ forloop.counter }}">
+                    Message pour {{ link.name }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>Parent:</strong> {{ link.name }}<br>
+                    <strong>Élève:</strong> {{ link.student_name }}<br>
+                    <strong>Téléphone:</strong> {{ link.phone }}
+                </div>
+                <hr>
+                <div class="mb-3">
+                    <strong>Message complet:</strong>
+                </div>
+                <div class="bg-light p-3 rounded border" style="white-space: pre-wrap; font-family: system-ui; max-height: 400px; overflow-y: auto;">
+                    {# Extract message from WhatsApp link #}
+                    {% with message=link.whatsapp_link|cut:"https://wa.me/"|cut:"?text=" %}
+                        {{ message|urldecode }}
+                    {% endwith %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                <a href="{{ link.whatsapp_link }}" target="_blank" class="btn btn-success" data-bs-dismiss="modal">
+                    <i class="bi bi-whatsapp"></i> Envoyer
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block extra_js %}
 <script>
-document.getElementById('open-all-btn').addEventListener('click', function() {
-    if (!confirm('Cela va ouvrir {{ total_contacts }} onglets WhatsApp. Continuer?')) {
-        return;
-    }
-    
-    const links = document.querySelectorAll('.whatsapp-link');
-    links.forEach((link, index) => {
-        setTimeout(() => {
-            window.open(link.href, '_blank');
-        }, index * 500);
+$(document).ready(function() {
+    $('#open-all-btn').on('click', function() {
+        const total = {{ total_contacts }};
+        
+        if (!confirm(`Cela va ouvrir ${total} onglets WhatsApp avec un délai de 500ms entre chaque.\n\nContinuer?`)) {
+            return;
+        }
+        
+        const $btn = $(this);
+        const originalHtml = $btn.html();
+        const links = document.querySelectorAll('.whatsapp-link');
+        let count = 0;
+        
+        $btn.prop('disabled', true);
+        
+        links.forEach((link, index) => {
+            setTimeout(() => {
+                window.open(link.href, '_blank');
+                count++;
+                $btn.html(`<i class="bi bi-hourglass-split"></i> ${count}/${total}...`);
+                
+                if (count === total) {
+                    setTimeout(() => {
+                        $btn.html('<i class="bi bi-check-circle"></i> Terminé!');
+                        setTimeout(() => {
+                            $btn.html(originalHtml).prop('disabled', false);
+                        }, 2000);
+                    }, 500);
+                }
+            }, index * 500);
+        });
     });
 });
 </script>
