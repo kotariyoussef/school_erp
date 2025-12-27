@@ -695,3 +695,94 @@ def validate_payment_amount(student, amount: Decimal, month_date: date) -> Dict:
         'message': "Montant valide",
         'suggestion': required
     }
+
+
+# ==================== SESSIONS ====================
+
+
+def _build_room_schedule(rooms, dates, sessions):
+    """Build schedule rows organized by room"""
+    rows = []
+    
+    for room in rooms:
+        cells = []
+        for date in dates:
+            # Get sessions for this room on this date
+            day_sessions = sessions.filter(
+                group__room=room,
+                date=date
+            ).order_by('start_time')
+            
+            cells.append({
+                'date': date,
+                'sessions': list(day_sessions),
+                'count': day_sessions.count()
+            })
+        
+        # Only include room if it has sessions this week
+        if any(cell['count'] > 0 for cell in cells):
+            rows.append({
+                'entity': room,
+                'entity_name': room.name,
+                'entity_detail': f"{room.capacity} places",
+                'cells': cells,
+                'total_sessions': sum(cell['count'] for cell in cells)
+            })
+    
+    return rows
+
+
+def _build_teacher_schedule(teachers, dates, sessions):
+    """Build schedule rows organized by teacher"""
+    rows = []
+    
+    for teacher in teachers:
+        cells = []
+        for date in dates:
+            # Get sessions for this teacher on this date
+            day_sessions = sessions.filter(
+                group__teacher=teacher,
+                date=date
+            ).order_by('start_time')
+            
+            cells.append({
+                'date': date,
+                'sessions': list(day_sessions),
+                'count': day_sessions.count()
+            })
+        
+        # Only include teacher if they have sessions this week
+        if any(cell['count'] > 0 for cell in cells):
+            rows.append({
+                'entity': teacher,
+                'entity_name': teacher.name,
+                'entity_detail': f"{teacher.hourly_rate} DH/h",
+                'cells': cells,
+                'total_sessions': sum(cell['count'] for cell in cells)
+            })
+    
+    return rows
+
+
+def _calculate_week_stats(sessions, dates):
+    """Calculate statistics for the week"""
+    stats = {
+        'total': sessions.count(),
+        'planned': sessions.filter(status='PLANNED').count(),
+        'done': sessions.filter(status='DONE').count(),
+        'cancelled': sessions.filter(status='CANCELLED').count(),
+        'by_day': []
+    }
+    
+    # Calculate per-day stats
+    for date in dates:
+        day_sessions = sessions.filter(date=date)
+        stats['by_day'].append({
+            'date': date,
+            'total': day_sessions.count(),
+            'planned': day_sessions.filter(status='PLANNED').count(),
+            'done': day_sessions.filter(status='DONE').count(),
+            'cancelled': day_sessions.filter(status='CANCELLED').count(),
+        })
+    
+    return stats

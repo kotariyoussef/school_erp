@@ -1,119 +1,632 @@
 {% extends 'core/base.html' %}
+{% load static extras %}
 {% block title %}Planification - School ERP{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="bi bi-calendar3"></i> Planification Hebdomadaire</h1>
-        <div class="d-flex gap-2">
-            <a href="{% url 'core:session_generate_bulk' %}" class="btn btn-success">
-                <i class="bi bi-gear"></i> Générer sessions
-            </a>
-            <a href="{% url 'core:session_exceptions_list' %}" class="btn btn-warning">
-                <i class="bi bi-exclamation-triangle"></i> Exceptions
-            </a>
-        </div>
+<div class="container-fluid py-4">
+  
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-0">
+        <i class="bi bi-calendar3"></i> Planification Hebdomadaire
+      </h1>
+      <p class="text-muted mt-2 mb-0">
+        {{ week_start|date:"d F Y" }} - {{ week_end|date:"d F Y" }}
+      </p>
     </div>
-
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <a href="?week={{ prev_week|date:'Y-m-d' }}" class="btn btn-outline-secondary">
-                <i class="bi bi-chevron-left"></i> Semaine précédente
-            </a>
-            <span class="mx-3">
-                <strong>{{ week_start|date:"d/m/Y" }} - {{ week_end|date:"d/m/Y" }}</strong>
-            </span>
-            <a href="?week={{ next_week|date:'Y-m-d' }}" class="btn btn-outline-secondary">
-                Semaine suivante <i class="bi bi-chevron-right"></i>
-            </a>
-        </div>
-        <div style="max-width:420px;">
-            <form method="get" class="row g-2">
-                <div class="col-5">{{ filter.form.date_after }}</div>
-                <div class="col-5">{{ filter.form.date_before }}</div>
-                <div class="col-2 d-grid"><button class="btn btn-primary">Filtrer</button></div>
-            </form>
-        </div>
+    <div class="btn-group">
+      <a href="{% url 'core:session_generate_bulk' %}" class="btn btn-success">
+        <i class="bi bi-gear"></i> Générer sessions
+      </a>
+      <a href="{% url 'core:session_exceptions_list' %}" class="btn btn-warning">
+        <i class="bi bi-exclamation-triangle"></i> Exceptions
+      </a>
+      <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-primary">
+        <i class="bi bi-list"></i> Vue liste
+      </a>
     </div>
+  </div>
 
-    <div class="card">
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered mb-0">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 140px;">Salle</th>
-                        {% for label in date_labels %}
-                            <th class="text-center">
-                                <div>{{ label.weekday }}</div>
-                                <small class="text-muted">{{ label.date|date:"d/m" }}</small>
-                            </th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody style="height: 400px; overflow-y: auto;">
-                    {% for row in room_rows %}
-                        <tr>
-                            <td class="fw-bold">{{ row.room.name }}</td>
-                            {% for cell in row.cells %}
-                                <td class="p-2" style="vertical-align: top; {% if cell.date == today %}background-color: #f0f8ff;{% endif %}">
-                                    {% if cell.sessions %}
-                                        {% for sess in cell.sessions %}
-                                            <div class="badge bg-primary mb-1 d-block">
-                                                <i class="bi bi-clock"></i>
-                                                {{ sess.start_time|time:"H:i" }}-{{ sess.end_time|time:"H:i" }}
-                                            </div>
-                                            <small class="text-dark d-block mb-2">
-                                                <strong>{{ sess.group.name }}</strong><br>
-                                                {{ sess.group.teacher.name }}
-                                            </small>
-                                        {% endfor %}
-                                    {% else %}
-                                        <small class="text-muted">--</small>
-                                    {% endif %}
-                                </td>
-                            {% endfor %}
-                        </tr>
+  <!-- Statistics Overview -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Total Sessions</h6>
+              <h2 class="mb-0">{{ stats.total }}</h2>
+            </div>
+            <div class="text-primary" style="font-size: 2rem;">
+              <i class="bi bi-calendar3"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Prévues</h6>
+              <h2 class="mb-0">{{ stats.planned }}</h2>
+            </div>
+            <div class="text-info" style="font-size: 2rem;">
+              <i class="bi bi-clock"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Terminées</h6>
+              <h2 class="mb-0">{{ stats.done }}</h2>
+            </div>
+            <div class="text-success" style="font-size: 2rem;">
+              <i class="bi bi-check-circle"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Annulées</h6>
+              <h2 class="mb-0">{{ stats.cancelled }}</h2>
+            </div>
+            <div class="text-danger" style="font-size: 2rem;">
+              <i class="bi bi-x-circle"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation and Filters -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        
+        <!-- Week Navigation -->
+        <div class="col-md-4">
+          <label class="form-label fw-bold">
+            <i class="bi bi-calendar-week"></i> Navigation
+          </label>
+          <div class="btn-group w-100">
+            <a href="?week={{ prev_week|date:'Y-m-d' }}{% if view_mode != 'room' %}&view={{ view_mode }}{% endif %}{% if room_filter %}&room_id={{ room_filter }}{% endif %}{% if teacher_filter %}&teacher_id={{ teacher_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+               class="btn btn-outline-secondary">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+            <a href="?week={{ today|date:'Y-m-d' }}{% if view_mode != 'room' %}&view={{ view_mode }}{% endif %}{% if room_filter %}&room_id={{ room_filter }}{% endif %}{% if teacher_filter %}&teacher_id={{ teacher_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+               class="btn btn-outline-secondary flex-grow-1">
+              <i class="bi bi-calendar-check"></i> Cette semaine
+            </a>
+            <a href="?week={{ next_week|date:'Y-m-d' }}{% if view_mode != 'room' %}&view={{ view_mode }}{% endif %}{% if room_filter %}&room_id={{ room_filter }}{% endif %}{% if teacher_filter %}&teacher_id={{ teacher_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+               class="btn btn-outline-secondary">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- View Mode Toggle -->
+        <div class="col-md-2">
+          <label class="form-label fw-bold">
+            <i class="bi bi-eye"></i> Vue
+          </label>
+          <div class="btn-group w-100" role="group">
+            <a href="?week={{ week_start|date:'Y-m-d' }}&view=room{% if room_filter %}&room_id={{ room_filter }}{% endif %}{% if teacher_filter %}&teacher_id={{ teacher_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+               class="btn btn-sm {% if view_mode == 'room' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+              <i class="bi bi-door-open"></i> Salles
+            </a>
+            <a href="?week={{ week_start|date:'Y-m-d' }}&view=teacher{% if room_filter %}&room_id={{ room_filter }}{% endif %}{% if teacher_filter %}&teacher_id={{ teacher_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" 
+               class="btn btn-sm {% if view_mode == 'teacher' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+              <i class="bi bi-person"></i> Profs
+            </a>
+          </div>
+        </div>
+
+        <!-- Room Filter -->
+        <div class="col-md-2">
+          <label class="form-label fw-bold">
+            <i class="bi bi-door-open"></i> Salle
+          </label>
+          <select name="room_id" class="form-select form-select-sm" onchange="applyFilter(this)">
+            <option value="">Toutes</option>
+            {% for room in rooms %}
+              <option value="{{ room.id }}" {% if room_filter == room.id|stringformat:'s' %}selected{% endif %}>
+                {{ room.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Teacher Filter -->
+        <div class="col-md-2">
+          <label class="form-label fw-bold">
+            <i class="bi bi-person"></i> Professeur
+          </label>
+          <select name="teacher_id" class="form-select form-select-sm" onchange="applyFilter(this)">
+            <option value="">Tous</option>
+            {% for teacher in teachers %}
+              <option value="{{ teacher.id }}" {% if teacher_filter == teacher.id|stringformat:'s' %}selected{% endif %}>
+                {{ teacher.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="col-md-2">
+          <label class="form-label fw-bold">
+            <i class="bi bi-flag"></i> Statut
+          </label>
+          <select name="status" class="form-select form-select-sm" onchange="applyFilter(this)">
+            <option value="">Tous</option>
+            <option value="PLANNED" {% if status_filter == 'PLANNED' %}selected{% endif %}>Prévue</option>
+            <option value="DONE" {% if status_filter == 'DONE' %}selected{% endif %}>Terminée</option>
+            <option value="CANCELLED" {% if status_filter == 'CANCELLED' %}selected{% endif %}>Annulée</option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Active Filters Display -->
+      {% if filters_active %}
+        <div class="mt-3 pt-3 border-top">
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <small class="text-muted">Filtres actifs:</small>
+            {% if room_filter %}
+              <span class="badge bg-light text-dark border">
+                Salle filtrée
+                <a href="?week={{ week_start|date:'Y-m-d' }}&view={{ view_mode }}{% if teacher_filter %}&teacher_id={{ teacher_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="text-dark ms-1">×</a>
+              </span>
+            {% endif %}
+            {% if teacher_filter %}
+              <span class="badge bg-light text-dark border">
+                Professeur filtré
+                <a href="?week={{ week_start|date:'Y-m-d' }}&view={{ view_mode }}{% if room_filter %}&room_id={{ room_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" class="text-dark ms-1">×</a>
+              </span>
+            {% endif %}
+            {% if status_filter %}
+              <span class="badge bg-light text-dark border">
+                Statut: {{ status_filter }}
+                <a href="?week={{ week_start|date:'Y-m-d' }}&view={{ view_mode }}{% if room_filter %}&room_id={{ room_filter }}{% endif %}{% if teacher_filter %}&teacher_id={{ teacher_filter }}{% endif %}" class="text-dark ms-1">×</a>
+              </span>
+            {% endif %}
+            <a href="?week={{ week_start|date:'Y-m-d' }}&view={{ view_mode }}" class="btn btn-sm btn-outline-secondary ms-auto">
+              <i class="bi bi-x-circle"></i> Effacer tout
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Schedule Grid -->
+  <div class="card border-0 shadow-sm">
+    <div class="schedule-container">
+      <table class="table table-bordered schedule-table mb-0">
+        <thead class="table-light sticky-header">
+          <tr>
+            <th class="row-header-cell" style="min-width: 180px;">
+              {{ row_label }}
+            </th>
+            {% for label in date_labels %}
+              <th class="text-center day-header {% if label.is_today %}today-column{% endif %} {% if label.is_weekend %}weekend-column{% endif %}">
+                <div class="fw-bold">{{ label.weekday }}</div>
+                <small class="text-muted">{{ label.date|date:"d/m" }}</small>
+                {% if label.is_today %}
+                  <div><span class="badge bg-primary badge-sm mt-1">Aujourd'hui</span></div>
+                {% endif %}
+                <!-- Day stats -->
+                {% with day_stats=stats.by_day|index:forloop.counter0 %}
+                {% if day_stats and day_stats.total > 0 %}
+                    <small class="text-muted d-block mt-1">
+                    {{ day_stats.total }} session{{ day_stats.total|pluralize }}
+                    </small>
+                {% endif %}
+                {% endwith %}
+              </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            <tr>
+              <td class="row-header-cell fw-bold">
+                <div>{{ row.entity_name }}</div>
+                <small class="text-muted">{{ row.entity_detail }}</small>
+                <small class="badge bg-secondary mt-1">
+                  {{ row.total_sessions }} session{{ row.total_sessions|pluralize }}
+                </small>
+              </td>
+              {% for cell in row.cells %}
+                <td class="schedule-cell {% if cell.date == today %}today-column{% endif %} {% if cell.date.weekday >= 5 %}weekend-column{% endif %}">
+                  {% if cell.sessions %}
+                    {% for session in cell.sessions %}
+                      <div class="session-block {% if session.status == 'CANCELLED' %}cancelled{% elif session.status == 'DONE' %}done{% else %}planned{% endif %}" 
+                           onclick="showSessionDetail({{ session.id }})">
+                        <div class="session-time">
+                          <i class="bi bi-clock"></i>
+                          {{ session.start_time|time:"H:i" }} - {{ session.end_time|time:"H:i" }}
+                        </div>
+                        <div class="session-name">{{ session.group.name }}</div>
+                        <div class="session-info">
+                          {% if view_mode == 'room' %}
+                            <i class="bi bi-person"></i> {{ session.group.teacher.name|truncatewords:2 }}
+                          {% else %}
+                            <i class="bi bi-door-open"></i> {{ session.group.room.name }}
+                          {% endif %}
+                        </div>
+                        <div class="session-students">
+                          <i class="bi bi-people"></i> {{ session.group.students.count }} élèves
+                        </div>
+                      </div>
                     {% endfor %}
-                </tbody>
-            </table>
-        </div>
+                  {% else %}
+                    <div class="text-center text-muted py-3">
+                      <small>--</small>
+                    </div>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="{{ date_labels|length|add:1 }}" class="text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="text-muted mt-3 mb-0">Aucune session trouvée pour cette semaine</p>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+  </div>
 
-    <div class="mt-4 row">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">Statistiques de la semaine</h5>
-                </div>
-                <div class="card-body">
-                    <p>
-                        <strong>Salles:</strong> {{ rooms|length }}<br>
-                        <strong>Sessions:</strong> 
-                        {% with total_sessions=0 %}
-                            {% for date_sched in schedule.values %}
-                                {% for room_sched in date_sched.values %}
-                                    {{ total_sessions|add:room_sched.sessions|length }}
-                                {% endfor %}
-                            {% endfor %}
-                        {% endwith %}
-                    </p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-light">
-                    <h5 class="mb-0">Actions</h5>
-                </div>
-                <div class="card-body">
-                    <a href="{% url 'core:sessions_today' %}" class="btn btn-sm btn-outline-primary">
-                        <i class="bi bi-list-check"></i> Sessions d'aujourd'hui
-                    </a>
-                    <a href="?week={{ today|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary">
-                        <i class="bi bi-arrow-clockwise"></i> Semaine actuelle
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
+
+<!-- Session Detail Modal (placeholder) -->
+<div class="modal fade" id="sessionDetailModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Détails de la session</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="sessionDetailContent">
+        <div class="text-center">
+          <div class="spinner-border" role="status"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Apply filter function
+function applyFilter(selectElement) {
+  const params = new URLSearchParams(window.location.search);
+  
+  // Update or remove parameter
+  const paramName = selectElement.name;
+  const value = selectElement.value;
+  
+  if (value) {
+    params.set(paramName, value);
+  } else {
+    params.delete(paramName);
+  }
+  
+  // Navigate with new parameters
+  window.location.search = params.toString();
+}
+
+// Show session detail (placeholder)
+function showSessionDetail(sessionId) {
+  // This would fetch session details via AJAX
+  // For now, just redirect to a detail page
+  window.location.href = `/sessions/${sessionId}/`;
+}
+
+function showSessionDetail(sessionId) {
+  const modal = new bootstrap.Modal(document.getElementById('sessionDetailModal'));
+  const contentDiv = document.getElementById('sessionDetailContent');
+  
+  // Show loading
+  contentDiv.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+  modal.show();
+  
+  // Fetch session details
+  fetch(`/sessions/${sessionId}/detail-ajax/`)
+    .then(response => response.json())
+    .then(data => {
+      // Build content
+      let html = `
+        <div class="session-detail-content">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <h6 class="text-muted mb-1">Groupe</h6>
+              <h5>${data.group.name}</h5>
+              <p class="mb-0">${data.group.subject} - ${data.group.level}</p>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-muted mb-1">Statut</h6>
+              <span class="badge ${getStatusBadgeClass(data.status)} fs-6">${data.status_display}</span>
+            </div>
+          </div>
+          
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <h6 class="text-muted mb-1"><i class="bi bi-calendar"></i> Date & Horaire</h6>
+              <p class="mb-0">${formatDate(data.date)}</p>
+              <p class="mb-0">${data.start_time} - ${data.end_time} (${data.duration}h)</p>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-muted mb-1"><i class="bi bi-door-open"></i> Salle</h6>
+              <p class="mb-0">${data.room.name}</p>
+              <small class="text-muted">${data.room.capacity} places</small>
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <h6 class="text-muted mb-1"><i class="bi bi-person"></i> Professeur</h6>
+            <p class="mb-0">${data.teacher.name}</p>
+            <small class="text-muted">${data.teacher.phone}</small>
+          </div>
+          
+          <div class="mb-3">
+            <h6 class="text-muted mb-2"><i class="bi bi-people"></i> Élèves (${data.student_count})</h6>
+            <div class="list-group">
+              ${data.students.map(student => `
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                  <span>${student.name}</span>
+                  ${student.is_present !== undefined ? 
+                    (student.is_present ? 
+                      '<span class="badge bg-success">Présent</span>' : 
+                      '<span class="badge bg-danger">Absent</span>') : 
+                    '<span class="badge bg-secondary">Non marqué</span>'}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          
+          ${data.notes ? `
+            <div class="mb-3">
+              <h6 class="text-muted mb-1">Notes</h6>
+              <p class="mb-0">${data.notes}</p>
+            </div>
+          ` : ''}
+          
+          <div class="d-flex gap-2 mt-4">
+            <a href="/sessions/${data.id}/attendance/" class="btn btn-primary">
+              <i class="bi bi-check2-circle"></i> Gérer présences
+            </a>
+            <button class="btn btn-outline-secondary" onclick="updateSessionStatus(${data.id}, 'DONE')">
+              <i class="bi bi-check"></i> Marquer terminée
+            </button>
+            <button class="btn btn-outline-danger" onclick="updateSessionStatus(${data.id}, 'CANCELLED')">
+              <i class="bi bi-x"></i> Annuler
+            </button>
+          </div>
+        </div>
+      `;
+      
+      contentDiv.innerHTML = html;
+    })
+    .catch(error => {
+      contentDiv.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement des détails</div>';
+      console.error('Error:', error);
+    });
+}
+
+// Quick status update
+function updateSessionStatus(sessionId, newStatus) {
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || getCookie('csrftoken');
+  
+  fetch(`/sessions/${sessionId}/quick-update/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: `status=${newStatus}`
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      // Close modal and reload page
+      bootstrap.Modal.getInstance(document.getElementById('sessionDetailModal')).hide();
+      location.reload();
+    } else {
+      alert('Erreur: ' + data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Erreur lors de la mise à jour');
+  });
+}
+
+// Helper functions
+function getStatusBadgeClass(status) {
+  switch(status) {
+    case 'PLANNED': return 'bg-primary';
+    case 'DONE': return 'bg-success';
+    case 'CANCELLED': return 'bg-danger';
+    default: return 'bg-secondary';
+  }
+}
+
+function formatDate(dateStr) {
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('fr-FR', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
+</script>
+
+<style>
+.schedule-container {
+  overflow-x: auto;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.schedule-table {
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: #f8f9fa;
+}
+
+.row-header-cell {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: #fff;
+  min-width: 180px;
+  vertical-align: top;
+  padding: 1rem;
+}
+
+.sticky-header .row-header-cell {
+  z-index: 11;
+  background-color: #f8f9fa;
+}
+
+.day-header {
+  min-width: 200px;
+  padding: 1rem;
+  vertical-align: top;
+}
+
+.today-column {
+  background-color: #f0f8ff !important;
+}
+
+.weekend-column {
+  background-color: #f8f9fa;
+}
+
+.schedule-cell {
+  vertical-align: top;
+  padding: 0.5rem;
+  min-height: 100px;
+}
+
+.session-block {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.session-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.session-block.planned {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.session-block.done {
+  background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+}
+
+.session-block.cancelled {
+  background: linear-gradient(135deg, #dc2430 0%, #7b4397 100%);
+  opacity: 0.6;
+}
+
+.session-time {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.session-name {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.session-info,
+.session-students {
+  font-size: 0.75rem;
+  opacity: 0.9;
+  margin-top: 0.25rem;
+}
+
+.badge-sm {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+}
+
+/* Print styles */
+@media print {
+  .btn, .form-select, .card-header .btn-group {
+    display: none !important;
+  }
+  
+  .schedule-container {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .day-header {
+    min-width: 150px;
+  }
+  
+  .session-block {
+    font-size: 0.75rem;
+    padding: 0.5rem;
+  }
+}
+</style>
 {% endblock %}

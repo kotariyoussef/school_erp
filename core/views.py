@@ -7,8 +7,8 @@ from django.db.models import Q, Count, Sum
 from decimal import Decimal
 from datetime import timedelta
 
-from .models import Student, Payment, Enrollment, Room
-from .utils import get_dashboard_stats, generate_receipt_pdf, calculate_student_monthly_total, generate_sessions_from_coursegroups
+from .models import Student, Payment, Enrollment, Room, Teacher
+from .utils import _build_room_schedule, _build_teacher_schedule, _calculate_week_stats, get_dashboard_stats, generate_receipt_pdf, calculate_student_monthly_total, generate_sessions_from_coursegroups
 from .forms import SessionForm, StudentForm, EnrollmentForm
 from django.core.paginator import Paginator
 from .models import CourseGroup, Session, Attendance, SessionException
@@ -561,84 +561,189 @@ def rooms_list(request):
 
 
 def sessions_schedule(request):
-	"""Display sessions in a week view (schedule grid)."""
-	from datetime import timedelta
+    """Enhanced weekly schedule view with better structure and filtering"""
+    
+    # Get the week starting date (Monday)
+    today = timezone.now().date()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=6)
+    
+    # Get week parameter from request
+    week_param = request.GET.get('week')
+    if week_param:
+        try:
+            parsed = datetime.strptime(week_param, '%Y-%m-%d').date()
+            # Normalize to Monday
+            week_start = parsed - timedelta(days=parsed.weekday())
+            week_end = week_start + timedelta(days=6)
+        except (ValueError, TypeError):
+            pass  # Keep current week
+    
+    # Determine view mode (room-based or teacher-based)
+    view_mode = request.GET.get('view', 'room')  # 'room' or 'teacher'
+    
+    # Get filter parameters
+    room_filter = request.GET.get('room_id')
+    teacher_filter = request.GET.get('teacher_id')
+    status_filter = request.GET.get('status')
+    
+    # Build list of dates for the week
+    dates = [week_start + timedelta(days=i) for i in range(7)]
+    
+    # Base sessions queryset for the week
+    base_sessions = Session.objects.filter(
+        date__range=[week_start, week_end]
+    ).select_related(
+        'group',
+        'group__teacher',
+        'group__room'
+    ).prefetch_related(
+        'group__students'
+    )
+    
+    # Apply filters
+    if room_filter:
+        base_sessions = base_sessions.filter(group__room_id=room_filter)
+    if teacher_filter:
+        base_sessions = base_sessions.filter(group__teacher_id=teacher_filter)
+    if status_filter:
+        base_sessions = base_sessions.filter(status=status_filter)
+    
+    # Get all rooms and teachers for the filters
+    rooms = Room.objects.filter(is_active=True).order_by('name')
+    teachers = Teacher.objects.filter(is_active=True).order_by('name')
+    
+    # Build schedule grid based on view mode
+    if view_mode == 'teacher':
+        rows = _build_teacher_schedule(teachers, dates, base_sessions)
+        row_label = 'Professeur'
+    else:
+        rows = _build_room_schedule(rooms, dates, base_sessions)
+        row_label = 'Salle'
+    
+    # Build date labels with weekday names
+    weekdays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+    date_labels = [
+        {
+            'weekday': weekdays[i],
+            'date': date,
+            'is_today': date == today,
+            'is_weekend': i >= 5
+        }
+        for i, date in enumerate(dates)
+    ]
+    
+    # Calculate statistics
+    stats = _calculate_week_stats(base_sessions, dates)
+    
+    # Check if filters are active
+    filters_active = any([room_filter, teacher_filter, status_filter])
+    
+    context = {
+        'week_start': week_start,
+        'week_end': week_end,
+        'prev_week': week_start - timedelta(days=7),
+        'next_week': week_start + timedelta(days=7),
+        'dates': dates,
+        'date_labels': date_labels,
+        'rows': rows,
+        'row_label': row_label,
+        'view_mode': view_mode,
+        'rooms': rooms,
+        'teachers': teachers,
+        'stats': stats,
+        'today': today,
+        'filters_active': filters_active,
+        'room_filter': room_filter,
+        'teacher_filter': teacher_filter,
+        'status_filter': status_filter,
+    }
+    
+    return render(request, 'core/sessions_schedule.html', context)
 
-	# Get the week starting date (Monday)
-	today = timezone.now().date()
-	week_start = today - timedelta(days=today.weekday())
-	week_end = week_start + timedelta(days=6)
+@require_POST
+def session_quick_status_update(request, session_id):
+    """
+    Quick update session status via AJAX
+    Used for marking sessions as done/cancelled from schedule view
+    """
+    session = get_object_or_404(Session, id=session_id)
+    new_status = request.POST.get('status')
+    
+    if new_status not in ['PLANNED', 'DONE', 'CANCELLED']:
+        return JsonResponse({'success': False, 'error': 'Invalid status'}, status=400)
+    
+    session.status = new_status
+    session.save()
+    
+    return JsonResponse({
+        'success': True,
+        'session_id': session.id,
+        'new_status': new_status,
+        'message': f'Statut mis à jour: {session.get_status_display()}'
+    })
 
-	# Get week parameter from request (e.g., ?week=2024-01-08 for that Monday)
-	week_param = request.GET.get('week')
-	if week_param:
-		try:
-			parsed = datetime.strptime(week_param, '%Y-%m-%d').date()
-			# normalize to monday
-			week_start = parsed - timedelta(days=parsed.weekday())
-			week_end = week_start + timedelta(days=6)
-		except Exception:
-			# ignore invalid input and keep current week
-			pass
 
-	# Get all rooms
-	from .models import Room
-	rooms = Room.objects.all().order_by('name')
-
-	# Build list of dates for the week (explicit list for templates)
-	dates = [week_start + timedelta(days=i) for i in range(7)]
-
-	# Base sessions queryset for the week; allow SessionFilter to refine
-	base_sessions = Session.objects.filter(date__range=[week_start, week_end], status__in=['PLANNED', 'DONE']).select_related('group', 'group__teacher', 'group__room')
-	session_filter = SessionFilter(request.GET, queryset=base_sessions)
-	filtered_sessions = session_filter.qs
-
-	# Build schedule grid: schedule[date][room.id] -> {room, sessions}
-	schedule = {}
-	for date in dates:
-		schedule[date] = {}
-		for room in rooms:
-			# filter the already-filtered sessions for this specific room/day
-			sessions_qs = filtered_sessions.filter(group__room=room, date=date).order_by('start_time')
-			schedule[date][room.id] = {
-				'room': room,
-				'sessions': list(sessions_qs)
-			}
-
-	# Build rows per room to simplify template rendering: each row has 'room' and 'cells' list aligned with `dates`
-	room_rows = []
-	for room in rooms:
-		cells = []
-		for date in dates:
-			sessions_for_cell = schedule.get(date, {}).get(room.id, {}).get('sessions', [])
-			cells.append({'date': date, 'sessions': sessions_for_cell})
-		room_rows.append({'room': room, 'cells': cells})
-
-	# Day names (aligned with `dates` list)
-	weekdays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
-
-	# build date labels to pair weekday names with dates for template
-	date_labels = []
-	for idx, date in enumerate(dates):
-		label = weekdays[idx] if idx < len(weekdays) else date.strftime('%A')
-		date_labels.append({'weekday': label, 'date': date})
-
-	context = {
-		'week_start': week_start,
-		'week_end': week_end,
-		'prev_week': week_start - timedelta(days=7),
-		'next_week': week_start + timedelta(days=7),
-		'weekdays': weekdays,
-		'dates': dates,
-		'date_labels': date_labels,
-		'rooms': rooms,
-		'schedule': schedule,
-		'room_rows': room_rows,
-		'filter': session_filter,
-		'today': today,
-	}
-
-	return render(request, 'core/sessions_schedule.html', context)
+def session_detail_ajax(request, session_id):
+    """
+    Get session details for modal display
+    """
+    session = get_object_or_404(
+        Session.objects.select_related(
+            'group',
+            'group__teacher',
+            'group__room'
+        ).prefetch_related(
+            'group__students'
+        ),
+        id=session_id
+    )
+    
+    # Get attendance if exists
+    from .models import Attendance
+    attendance = Attendance.objects.filter(
+        course_group=session.group,
+        date=session.date
+    ).select_related('student')
+    
+    students = session.group.students.all()
+    attendance_dict = {a.student_id: a.is_present for a in attendance}
+    
+    student_list = []
+    for student in students:
+        student_list.append({
+            'id': student.id,
+            'name': student.name,
+            'is_present': attendance_dict.get(student.id),
+        })
+    
+    data = {
+        'id': session.id,
+        'group': {
+            'name': session.group.name,
+            'subject': session.group.subject,
+            'level': session.group.level,
+        },
+        'date': session.date.strftime('%Y-%m-%d'),
+        'start_time': session.start_time.strftime('%H:%M'),
+        'end_time': session.end_time.strftime('%H:%M'),
+        'duration': session.duration_hours(),
+        'room': {
+            'name': session.group.room.name,
+            'capacity': session.group.room.capacity,
+        },
+        'teacher': {
+            'name': session.group.teacher.name,
+            'phone': session.group.teacher.phone,
+        },
+        'status': session.status,
+        'status_display': session.get_status_display(),
+        'students': student_list,
+        'student_count': len(student_list),
+        'notes': session.notes,
+    }
+    
+    return JsonResponse(data)
 
 
 @require_http_methods(['GET', 'POST'])

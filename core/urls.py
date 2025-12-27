@@ -32,6 +32,8 @@ urlpatterns = [
     path('sessions/<int:session_id>/delete/', views.session_delete, name='session_delete'),
     path('sessions/generate/', views.session_generate_bulk, name='session_generate_bulk'),
     path('sessions/exceptions/', views.session_exceptions_list, name='session_exceptions_list'),
+    path('sessions/<int:session_id>/quick-update/', views.session_quick_status_update, name='session_quick_status_update'),
+    path('sessions/<int:session_id>/detail-ajax/', views.session_detail_ajax, name='session_detail_ajax'),
     
     # Cashier
     path('cashier/payment/create/', views.payment_create, name='payment_create'),
