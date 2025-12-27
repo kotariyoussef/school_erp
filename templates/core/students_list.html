@@ -1,0 +1,318 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Gestion des élèves - School ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-0"><i class="bi bi-people-fill"></i> Gestion des élèves</h1>
+      <p class="text-muted mt-2">
+        <strong>{{ students|length }}</strong> élèves actifs
+        <span class="badge bg-light text-dark ms-2">
+          <i class="bi bi-graph-up"></i> Plus {{ filter_count|default:0 }} avec filtres
+        </span>
+      </p>
+    </div>
+    <div class="gap-2 d-flex">
+      <button class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#filterPanel">
+        <i class="bi bi-funnel"></i> Filtres
+      </button>
+      <a href="{% url 'core:student_create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Ajouter élève
+      </a>
+    </div>
+  </div>
+
+  <!-- Alerts -->
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <!-- Filter Panel -->
+  <div class="collapse" id="filterPanel">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <form method="get" class="row g-3">
+          <div class="col-md-4">
+            <label for="search" class="form-label">
+              <i class="bi bi-search"></i> Rechercher
+            </label>
+            <input type="text" class="form-control" id="search" name="q" placeholder="Nom ou téléphone..." value="{{ request.GET.q }}">
+          </div>
+          <div class="col-md-4">
+            <label for="status" class="form-label">
+              <i class="bi bi-credit-card"></i> Statut de paiement
+            </label>
+            <select class="form-select" id="status" name="payment_status">
+              <option value="">-- Tous les statuts --</option>
+              <option value="ok" {% if request.GET.payment_status == 'ok' %}selected{% endif %}>✓ À jour</option>
+              <option value="partial" {% if request.GET.payment_status == 'partial' %}selected{% endif %}>⚠ Partiel</option>
+              <option value="unpaid" {% if request.GET.payment_status == 'unpaid' %}selected{% endif %}>✗ Impayé</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">&nbsp;</label>
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="bi bi-search"></i> Appliquer filtres
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Toggle Tabs -->
+  <ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="grid-tab" data-bs-toggle="tab" data-bs-target="#gridView" type="button">
+        <i class="bi bi-grid-3x3-gap"></i> Vue grille
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="table-tab" data-bs-toggle="tab" data-bs-target="#tableView" type="button">
+        <i class="bi bi-table"></i> Vue tableau
+      </button>
+    </li>
+  </ul>
+
+  <!-- Grid View -->
+  <div class="tab-content">
+    <div class="tab-pane fade show active" id="gridView">
+      <div class="row g-3 mb-4">
+        {% for student in students %}
+          <div class="col-md-6 col-lg-4">
+            <div class="card border-0 shadow-sm h-100 student-card">
+              <div class="card-body">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                  <div class="flex-grow-1">
+                    <h5 class="card-title mb-1">{{ student.name }}</h5>
+                    <small class="text-muted d-block">
+                      <i class="bi bi-telephone"></i> {{ student.parent_contact }}
+                    </small>
+                  </div>
+                  <!-- Status Badge -->
+                  {% with status=student.payment_status %}
+                    <span class="badge rounded-pill" 
+                          style="background-color:
+                            {% if status == 'OK' %}#28a745{% elif status == 'PARTIAL' %}#ffc107{% else %}#dc3545{% endif %};
+                                 margin-left: 1rem;">
+                      {% if status == 'OK' %}
+                        <i class="bi bi-check-circle-fill"></i> Payé
+                      {% elif status == 'PARTIAL' %}
+                        <i class="bi bi-exclamation-circle-fill"></i> Partiel
+                      {% else %}
+                        <i class="bi bi-x-circle-fill"></i> Impayé
+                      {% endif %}
+                    </span>
+                  {% endwith %}
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <div class="text-center p-2 bg-light rounded">
+                      <small class="text-muted d-block">Cours</small>
+                      <strong style="font-size: 1.3rem;">{{ student.enrollment_set.count }}</strong>
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="text-center p-2 bg-light rounded">
+                      <small class="text-muted d-block">Frais/mois</small>
+                      <strong style="font-size: 1.3rem;">{{ student.total_monthly_fees|floatformat:0 }} DH</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Courses Preview -->
+                {% with courses=student.enrollment_set.all|slice:":3" %}
+                  {% if courses %}
+                    <div class="mb-3">
+                      <small class="text-muted d-block mb-2">
+                        <i class="bi bi-book"></i> Cours actuels
+                      </small>
+                      <div>
+                        {% for e in courses %}
+                          <small class="badge bg-info text-white me-1 mb-1">{{ e.course_group.subject }}</small>
+                        {% endfor %}
+                        {% with more=student.enrollment_set.count|add:"-3" %}
+                          {% if more > 0 %}
+                            <small class="badge bg-secondary text-white">+{{ more }} plus</small>
+                          {% endif %}
+                        {% endwith %}
+                      </div>
+                    </div>
+                  {% endif %}
+                {% endwith %}
+
+                <!-- Parent Info -->
+                <div class="small bg-light p-2 rounded mb-3">
+                  <strong>Parent:</strong> {{ student.parent_name|default:student.parent_contact }}
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="d-grid gap-2">
+                  <a href="{% url 'core:student_page' student.id %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-eye"></i> Voir détails
+                  </a>
+                  <div class="d-flex gap-2">
+                    <a href="{% url 'core:student_edit' student.id %}" class="btn btn-outline-secondary btn-sm flex-grow-1">
+                      <i class="bi bi-pencil"></i> Éditer
+                    </a>
+                    <a href="{% url 'core:payment_create' %}?student_id={{ student.id }}" class="btn btn-outline-success btn-sm flex-grow-1">
+                      <i class="bi bi-credit-card"></i> Paiement
+                    </a>
+                    <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="dropdown">
+                      <i class="bi bi-three-dots"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li>
+                        <a class="dropdown-item" href="{% url 'core:student_delete_confirm' student.id %}">
+                          <i class="bi bi-trash"></i> Supprimer
+                        </a>
+                      </li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li>
+                        <a class="dropdown-item" href="{% url 'core:student_page' student.id %}">
+                          <i class="bi bi-info-circle"></i> Voir profil complet
+                        </a>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% empty %}
+          <div class="col-12">
+            <div class="alert alert-info text-center py-5">
+              <i class="bi bi-inbox" style="font-size: 3rem; opacity: 0.5;"></i>
+              <p class="mb-0 mt-3">Aucun élève trouvé</p>
+              <small class="text-muted mt-2 d-block">Essayez d'ajuster vos filtres ou d'ajouter un nouvel élève</small>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Table View -->
+    <div class="tab-pane fade" id="tableView">
+      <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th><i class="bi bi-person"></i> Nom</th>
+                <th><i class="bi bi-telephone"></i> Contact</th>
+                <th><i class="bi bi-book"></i> Cours</th>
+                <th class="text-end"><i class="bi bi-cash-coin"></i> Frais/mois</th>
+                <th><i class="bi bi-credit-card"></i> Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for student in students %}
+                <tr>
+                  <td>
+                    <strong>{{ student.name }}</strong><br>
+                    <small class="text-muted">{{ student.parent_name|default:student.parent_contact }}</small>
+                  </td>
+                  <td>
+                    <i class="bi bi-telephone"></i> {{ student.parent_contact }}
+                  </td>
+                  <td>
+                    <span class="badge bg-light text-dark">
+                      <i class="bi bi-book"></i> {{ student.enrollment_set.count }}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <strong>{{ student.total_monthly_fees|floatformat:0 }} DH</strong>
+                  </td>
+                  <td>
+                    {% with status=student.payment_status %}
+                      <span class="badge" style="background-color:
+                        {% if status == 'OK' %}#28a745{% elif status == 'PARTIAL' %}#ffc107{% else %}#dc3545{% endif %};">
+                        {% if status == 'OK' %}
+                          <i class="bi bi-check-circle-fill"></i> Payé
+                        {% elif status == 'PARTIAL' %}
+                          <i class="bi bi-exclamation-circle-fill"></i> Partiel
+                        {% else %}
+                          <i class="bi bi-x-circle-fill"></i> Impayé
+                        {% endif %}
+                      </span>
+                    {% endwith %}
+                  </td>
+                  <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <a href="{% url 'core:student_page' student.id %}" class="btn btn-outline-primary" title="Voir">
+                        <i class="bi bi-eye"></i>
+                      </a>
+                      <a href="{% url 'core:student_edit' student.id %}" class="btn btn-outline-secondary" title="Éditer">
+                        <i class="bi bi-pencil"></i>
+                      </a>
+                      <a href="{% url 'core:payment_create' %}?student_id={{ student.id }}" class="btn btn-outline-success" title="Paiement">
+                        <i class="bi bi-credit-card"></i>
+                      </a>
+                      <a href="{% url 'core:student_delete_confirm' student.id %}" class="btn btn-outline-danger" title="Supprimer">
+                        <i class="bi bi-trash"></i>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6" class="text-center py-5 text-muted">
+                    Aucun élève trouvé
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .student-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .student-card:hover {
+    box-shadow: 0 12px 24px rgba(0,0,0,0.15) !important;
+    transform: translateY(-4px);
+  }
+
+  .btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  .nav-tabs .nav-link {
+    color: #6c757d;
+    border-color: transparent;
+    border-bottom: 2px solid transparent;
+  }
+
+  .nav-tabs .nav-link:hover {
+    color: #495057;
+    border-color: #dee2e6;
+  }
+
+  .nav-tabs .nav-link.active {
+    color: #0d6efd;
+    border-color: #0d6efd;
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends 'core/base.html' %}
+{% block title %}Session Exceptions - School ERP{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-exclamation-triangle"></i> Exceptions de sessions</h1>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newExceptionModal">
+      <i class="bi bi-plus-lg"></i> Ajouter exception
+    </button>
+  </div>
+
+  <!-- Filter by course group -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-2">
+        <div class="col-md-6">
+          <select name="group_id" class="form-select">
+            <option value="">Tous les groupes</option>
+            {% for course in courses %}
+              <option value="{{ course.id }}" {% if course.id|stringformat:"s" == selected_group_id %}selected{% endif %}>
+                {{ course.name }} - {{ course.get_schedule_day_display }} {{ course.start_time|time:"H:i" }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6 d-grid">
+          <button class="btn btn-outline-secondary" type="submit">Filtrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Exceptions Table -->
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Groupe</th>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Détails</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for exc in exceptions %}
+            <tr>
+              <td>
+                <strong>{{ exc.course_group.name }}</strong><br>
+                <small class="text-muted">{{ exc.course_group.get_schedule_day_display }} {{ exc.course_group.start_time|time:"H:i" }}-{{ exc.course_group.end_time|time:"H:i" }}</small>
+              </td>
+              <td>{{ exc.date|date:"d/m/Y" }}</td>
+              <td>
+                {% if exc.cancelled %}
+                  <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Annulée</span>
+                {% else %}
+                  <span class="badge bg-warning"><i class="bi bi-pencil"></i> Override</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if exc.cancelled %}
+                  <small>Session annulée</small>
+                {% else %}
+                  <small>
+                    {% if exc.override_start_time %}
+                      Heure: {{ exc.override_start_time|time:"H:i" }}-{{ exc.override_end_time|time:"H:i" }}<br>
+                    {% endif %}
+                    {% if exc.override_room %}
+                      Salle: {{ exc.override_room.name }}<br>
+                    {% endif %}
+                    {% if exc.notes %}
+                      Note: {{ exc.notes|truncatewords:5 }}
+                    {% endif %}
+                  </small>
+                {% endif %}
+              </td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal{{ exc.id }}">
+                  <i class="bi bi-pencil"></i> Éditer
+                </button>
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteException({{ exc.id }})">
+                  <i class="bi bi-trash"></i> Supprimer
+                </button>
+              </td>
+            </tr>
+
+            <!-- Edit Modal -->
+            <div class="modal fade" id="editModal{{ exc.id }}" tabindex="-1">
+              <div class="modal-dialog">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Éditer exception</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="group_id" value="{{ exc.course_group.id }}">
+                    <input type="hidden" name="date" value="{{ exc.date|date:'Y-m-d' }}">
+                    <div class="modal-body">
+                      <div class="mb-3">
+                        <label class="form-label">Action</label>
+                        <div>
+                          <div class="form-check">
+                            <input type="radio" name="action" value="cancel" id="action_cancel_{{ exc.id }}" class="form-check-input">
+                            <label class="form-check-label" for="action_cancel_{{ exc.id }}">Annuler cette session</label>
+                          </div>
+                          <div class="form-check">
+                            <input type="radio" name="action" value="override" id="action_override_{{ exc.id }}" class="form-check-input" checked>
+                            <label class="form-check-label" for="action_override_{{ exc.id }}">Changer horaire/salle</label>
+                          </div>
+                        </div>
+                      </div>
+                      <div id="override_fields_{{ exc.id }}">
+                        <div class="mb-3">
+                          <label for="override_start_{{ exc.id }}" class="form-label">Heure de début</label>
+                          <input type="time" name="override_start_time" id="override_start_{{ exc.id }}" class="form-control" value="{{ exc.override_start_time|time:'H:i' }}">
+                        </div>
+                        <div class="mb-3">
+                          <label for="override_end_{{ exc.id }}" class="form-label">Heure de fin</label>
+                          <input type="time" name="override_end_time" id="override_end_{{ exc.id }}" class="form-control" value="{{ exc.override_end_time|time:'H:i' }}">
+                        </div>
+                        <div class="mb-3">
+                          <label for="override_room_{{ exc.id }}" class="form-label">Salle (optionnel)</label>
+                          <select name="override_room_id" id="override_room_{{ exc.id }}" class="form-select">
+                            <option value="">Salle par défaut</option>
+                            {% for room in rooms %}
+                              <option value="{{ room.id }}" {% if exc.override_room_id == room.id %}selected{% endif %}>
+                                {{ room.name }}
+                              </option>
+                            {% endfor %}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                      <button type="submit" class="btn btn-primary">Enregistrer</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          {% empty %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4">
+                Aucune exception trouvée. Les sessions suivent les horaires des groupes.
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- New Exception Modal -->
+  <div class="modal fade" id="newExceptionModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Ajouter une exception</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form method="post">
+          {% csrf_token %}
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="group_select" class="form-label">Groupe de cours</label>
+              <select name="group_id" id="group_select" class="form-select" required>
+                <option value="">-- Sélectionner un groupe --</option>
+                {% for course in courses %}
+                  <option value="{{ course.id }}">{{ course.name }} - {{ course.get_schedule_day_display }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="mb-3">
+              <label for="date_select" class="form-label">Date</label>
+              <input type="date" name="date" id="date_select" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Action</label>
+              <div>
+                <div class="form-check">
+                  <input type="radio" name="action" value="cancel" id="action_cancel_new" class="form-check-input">
+                  <label class="form-check-label" for="action_cancel_new">Annuler cette session</label>
+                </div>
+                <div class="form-check">
+                  <input type="radio" name="action" value="override" id="action_override_new" class="form-check-input" checked>
+                  <label class="form-check-label" for="action_override_new">Changer horaire/salle</label>
+                </div>
+              </div>
+            </div>
+            <div id="override_fields_new">
+              <div class="mb-3">
+                <label for="override_start_new" class="form-label">Heure de début</label>
+                <input type="time" name="override_start_time" id="override_start_new" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="override_end_new" class="form-label">Heure de fin</label>
+                <input type="time" name="override_end_time" id="override_end_new" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="override_room_new" class="form-label">Salle (optionnel)</label>
+                <select name="override_room_id" id="override_room_new" class="form-select">
+                  <option value="">Salle par défaut</option>
+                  {% for room in rooms %}
+                    <option value="{{ room.id }}">{{ room.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button type="submit" class="btn btn-primary">Ajouter</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function deleteException(id) {
+    if (confirm('Confirmer la suppression ?')) {
+      // Implementation: would need a delete endpoint
+      alert('Feature coming soon');
+    }
+  }
+</script>
+{% endblock %}

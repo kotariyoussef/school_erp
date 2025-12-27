@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Reçu de paiement</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin:auto; padding:20px }
+    .header { text-align:center }
+    .logo { max-height:80px }
+    .items { margin-top:20px }
+    .total { font-weight:bold; font-size:1.2em; margin-top:12px }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="/static/logo.png" alt="Logo" class="logo" onerror="this.style.display='none'"/>
+    <h2>Reçu de paiement</h2>
+  </div>
+
+  <div>
+    <div>Élève: {{ student.name }}</div>
+    <div>Date: {{ date }}</div>
+  </div>
+
+  <div class="items">
+    <div>Montant: {{ amount }} DH</div>
+  </div>
+
+  <div class="total">Merci pour votre paiement</div>
+</body>
+</html>

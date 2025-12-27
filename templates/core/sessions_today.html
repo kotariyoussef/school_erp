@@ -1,0 +1,71 @@
+{% extends 'core/base.html' %}
+{% block title %}Sessions Aujourd'hui{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-calendar2-event"></i> Sessions - {{ today|date:"d/m/Y" }}</h1>
+    </div>
+
+    <div class="mb-3">
+        <form method="get" class="row g-2">
+            <div class="col-md-3">{{ filter.form.date_after }}</div>
+            <div class="col-md-3">{{ filter.form.date_before }}</div>
+            <div class="col-md-3">{{ filter.form.teacher }}</div>
+            <div class="col-md-2">{{ filter.form.room }}</div>
+            <div class="col-md-1 d-grid"><button class="btn btn-primary">Filtrer</button></div>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if sessions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Groupe</th>
+                                <th>Salle</th>
+                                <th>Professeur</th>
+                                <th>Horaire</th>
+                                <th>Statut</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in sessions %}
+                                <tr>
+                                    <td><strong>{{ s.group.name }}</strong></td>
+                                    <td><span class="badge bg-secondary">{{ s.group.room.name }}</span></td>
+                                    <td>{{ s.group.teacher.name }}</td>
+                                    <td>
+                                        <i class="bi bi-clock"></i>
+                                        {{ s.start_time|time:"H:i" }} - {{ s.end_time|time:"H:i" }}
+                                    </td>
+                                    <td>
+                                        {% if s.status == 'DONE' %}
+                                            <span class="badge bg-success">✓ Terminée</span>
+                                        {% elif s.status == 'CANCELLED' %}
+                                            <span class="badge bg-danger">✗ Annulée</span>
+                                        {% else %}
+                                            <span class="badge bg-primary">Prévue</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="/sessions/{{ s.id }}/attendance/" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-check2-circle"></i> Présence
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle"></i> Aucune session aujourd'hui
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

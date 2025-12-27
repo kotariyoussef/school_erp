@@ -1,0 +1,12 @@
+{% extends 'core/base.html' %}
+{% block title %}Session Deleted - School ERP{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="alert alert-warning">La session (ID: {{ session_id }}) a été supprimée.</div>
+      <a href="{% url 'core:sessions_schedule' %}" class="btn btn-secondary">Retour au planning</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

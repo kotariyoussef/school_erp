@@ -1,0 +1,152 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Confirmer la suppression - {{ student.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-exclamation-triangle-fill text-danger"></i> Confirmer la suppression
+            </h1>
+            <p class="text-muted mt-2">Êtes-vous sûr de vouloir supprimer cet élève ? Cette action est irréversible.</p>
+        </div>
+        <a href="{% url 'core:student_page' student.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Annuler
+        </a>
+    </div>
+
+    <!-- Confirmation Card -->
+    <div class="card border-danger shadow-sm">
+        <div class="card-body p-4">
+            <!-- Student Summary -->
+            <div class="bg-light p-3 rounded mb-4">
+                <div class="row align-items-center">
+                    <div class="col">
+                        <h5 class="mb-2">{{ student.name }}</h5>
+                        <div class="d-flex gap-3">
+                            <div>
+                                <small class="text-muted d-block">Téléphone</small>
+                                <strong>{{ student.phone|default:"N/A" }}</strong>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">Parent</small>
+                                <strong>{{ student.parent_name|default:student.parent_contact }}</strong>
+                            </div>
+                            <div>
+                                <small class="text-muted d-block">Statut</small>
+                                {% if student.is_active %}
+                                    <span class="badge bg-success">Actif</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactif</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Impact Analysis -->
+            <div class="alert alert-warning mb-4">
+                <h6 class="alert-heading mb-3">
+                    <i class="bi bi-exclamation-circle"></i> Données liées qui seront supprimées :
+                </h6>
+                <ul class="mb-0">
+                    {% if enrollments %}
+                        <li>
+                            <strong>{{ enrollments|length }} inscription(s)</strong> à des cours
+                            {% if enrollments %}
+                                <ul class="mt-2">
+                                    {% for enrollment in enrollments %}
+                                        <li>{{ enrollment.course_group.name }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </li>
+                    {% endif %}
+                    {% if payment_count > 0 %}
+                        <li><strong>{{ payment_count }} paiement(s)</strong> enregistrés</li>
+                    {% endif %}
+                    <li>Tous les enregistrements de présence</li>
+                    <li>Tous les enregistrements de cours associés</li>
+                </ul>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="border-top pt-4">
+                <p class="text-danger mb-4">
+                    <i class="bi bi-shield-exclamation"></i>
+                    <strong>Attention :</strong> Cette action supprimera définitivement {{ student.name }} et toutes les données associées de la base de données.
+                </p>
+
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2">
+                    <form method="post" action="{% url 'core:student_delete' student.id %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger btn-lg">
+                            <i class="bi bi-trash-fill"></i> Oui, supprimer définitivement
+                        </button>
+                    </form>
+                    <a href="{% url 'core:student_page' student.id %}" class="btn btn-secondary btn-lg">
+                        <i class="bi bi-x-lg"></i> Non, retour
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alternative Actions -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-info-circle"></i> Alternative recommandée
+                    </h6>
+                    <p class="card-text small text-muted mb-3">
+                        Au lieu de supprimer, vous pouvez marquer cet élève comme inactif. Cela conservera l'historique des données tout en masquant l'élève.
+                    </p>
+                    <a href="{% url 'core:student_edit' student.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-pencil"></i> Marquer comme inactif
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="bi bi-question-circle"></i> Besoin d'aide ?
+                    </h6>
+                    <p class="card-text small text-muted mb-3">
+                        Contactez un administrateur si vous avez besoin d'assistance ou si vous avez accidentellement supprimé un élève.
+                    </p>
+                    <a href="{% url 'core:cockpit' %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-telephone"></i> Support
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .alert {
+        border-left: 4px solid #ffc107;
+    }
+
+    .card {
+        border-radius: 0.5rem;
+    }
+
+    .btn:focus {
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    .btn-danger:focus {
+        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+    }
+</style>
+{% endblock %}

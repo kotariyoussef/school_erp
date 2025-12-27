@@ -1,0 +1,291 @@
+{% load nav_active %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}School ERP{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --secondary-color: #6c757d;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+        }
+        body {
+            display: flex;
+            min-height: 100vh;
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 0;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 2px 0 15px rgba(0,0,0,0.1);
+        }
+        .sidebar .brand {
+            padding: 0 20px 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            margin-bottom: 20px;
+        }
+        .sidebar .brand h3 {
+            margin: 0;
+            font-weight: 700;
+            font-size: 1.3rem;
+        }
+        .sidebar .nav-link {
+            color: rgba(255,255,255,0.8);
+            padding: 12px 20px;
+            transition: all 0.3s;
+            border-left: 3px solid transparent;
+        }
+        .sidebar .nav-link:hover {
+            color: white;
+            background-color: rgba(255,255,255,0.1);
+            border-left-color: white;
+        }
+        .sidebar .nav-link.active {
+            color: white;
+            background-color: rgba(255,255,255,0.15);
+            border-left-color: #ffc107;
+        }
+        .main-content {
+            flex: 1;
+            margin-left: 260px;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar-custom {
+            background-color: white;
+            border-bottom: 1px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 15px 30px;
+        }
+        .search-bar {
+            max-width: 400px;
+        }
+        .content-wrapper {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        .btn {
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        .kpi-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .kpi-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 10px 0;
+        }
+        .kpi-label {
+            color: #6c757d;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        .table-hover tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+        .badge-status {
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        .footer {
+            background-color: white;
+            border-top: 1px solid #dee2e6;
+            padding: 20px 30px;
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 15px 0;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .content-wrapper {
+                padding: 20px;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="brand">
+            <h3><i class="bi bi-mortarboard-fill"></i> School ERP</h3>
+        </div>
+
+        <ul class="nav flex-column">
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'cockpit' %}" href="{% url 'core:cockpit' %}">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'students_list' 'student_page' %}"
+                href="{% url 'core:students_list' %}">
+                    <i class="bi bi-people-fill"></i> Élèves
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'courses_list' %}"
+                href="{% url 'core:courses_list' %}">
+                    <i class="bi bi-book"></i> Cours
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'teachers_list' %}"
+                href="{% url 'core:teachers_list' %}">
+                    <i class="bi bi-person-badge"></i> Professeurs
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'payment_create' 'student_search' 'student_detail' %}"
+                href="{% url 'core:payment_create' %}">
+                    <i class="bi bi-currency-dollar"></i> Caisse
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'sessions_today' 'session_attendance' %}"
+                href="{% url 'core:sessions_today' %}">
+                    <i class="bi bi-calendar2-event"></i> Sessions
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'sessions_schedule' %}"
+                href="{% url 'core:sessions_schedule' %}">
+                    <i class="bi bi-calendar3"></i> Planification
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link {% active_if 'teacher_payroll' %}"
+                href="{% url 'core:teacher_payroll' %}">
+                    <i class="bi bi-calculator"></i> Paie
+                </a>
+            </li>
+
+            <li class="nav-item">
+                <a class="nav-link" href="/admin/">
+                    <i class="bi bi-gear"></i> Admin
+                </a>
+            </li>
+
+        </ul>
+    </nav>
+
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Top Navbar -->
+        <nav class="navbar-custom d-flex justify-content-between align-items-center">
+            <div class="search-bar">
+                <select id="global-search" style="width:100%"></select>
+            </div>
+            <div>
+                <span class="text-muted"><i class="bi bi-clock"></i> <span id="current-time"></span></span>
+            </div>
+        </nav>
+
+        <!-- Content -->
+        <div class="content-wrapper">
+            {% block content %}{% endblock %}
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 School ERP System | Système de Gestion Scolaire</p>
+        </footer>
+    </div>
+
+    <script>
+        $(function(){
+            // Global search
+            $('#global-search').select2({
+                placeholder: 'Rechercher un élève...',
+                ajax: {
+                    url: '/cashier/student-search/',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params){ return { q: params.term }; },
+                    processResults: function(data){ return { results: data.results }; }
+                },
+                minimumInputLength: 1
+            });
+
+            $('#global-search').on('select2:select', function(e){
+                var id = e.params.data.id;
+                window.location.href = '/students/' + id + '/';
+            });
+
+            // Update current time
+            function updateTime() {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('fr-FR');
+                $('#current-time').text(timeStr);
+            }
+            updateTime();
+            setInterval(updateTime, 1000);
+        });
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

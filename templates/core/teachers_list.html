@@ -1,0 +1,89 @@
+{% extends 'core/base.html' %}
+{% block title %}Liste des Professeurs - School ERP{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-person-badge"></i> Liste des Professeurs</h1>
+        <a href="/admin/core/teacher/add/" class="btn btn-primary" target="_blank">
+            <i class="bi bi-plus-circle"></i> Ajouter un professeur
+        </a>
+    </div>
+
+    <div class="mb-3">
+        <form method="get" class="row g-2">
+            <div class="col-md-5">{{ filter.form.name }}</div>
+            <div class="col-md-3">{{ filter.form.min_rate }}</div>
+            <div class="col-md-3">{{ filter.form.max_rate }}</div>
+            <div class="col-md-1 d-grid"><button class="btn btn-primary">Filtrer</button></div>
+        </form>
+    </div>
+
+    {% if teachers %}
+        <div class="row">
+            {% for teacher in teachers %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">{{ teacher.name }}</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <span class="badge bg-info">Téléphone</span>
+                                <p class="mb-0 mt-2">{{ teacher.phone|default:"N/A" }}</p>
+                            </div>
+
+                            <div class="mb-3">
+                                <span class="badge bg-success">Tarif horaire</span>
+                                <p class="mb-0 mt-2"><strong>{{ teacher.hourly_rate }} DH/h</strong></p>
+                            </div>
+
+                            <div class="mb-3">
+                                <span class="badge bg-warning">Cours assignés</span>
+                                <p class="mb-0 mt-2">
+                                    {% if teacher.course_count %}
+                                        <strong>{{ teacher.course_count }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">Aucun</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+
+                            <div class="mb-3">
+                                <span class="badge bg-secondary">Sessions prévues</span>
+                                <p class="mb-0 mt-2">
+                                    {% if teacher.session_count %}
+                                        <strong>{{ teacher.session_count }}</strong>
+                                    {% else %}
+                                        <span class="text-muted">Aucune</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+
+                            <hr>
+
+                            <div class="d-flex gap-2">
+                                <a href="/admin/core/teacher/{{ teacher.id }}/change/" class="btn btn-sm btn-outline-primary" target="_blank">
+                                    <i class="bi bi-pencil"></i> Éditer
+                                </a>
+                                <a href="/admin/core/teacher/{{ teacher.id }}/delete/" class="btn btn-sm btn-outline-danger" target="_blank">
+                                    <i class="bi bi-trash"></i> Supprimer
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                <p class="mt-3">Aucun professeur trouvé.</p>
+                <a href="/admin/core/teacher/add/" class="btn btn-primary btn-sm" target="_blank">
+                    <i class="bi bi-plus"></i> Ajouter un professeur
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

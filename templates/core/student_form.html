@@ -1,0 +1,229 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-person-plus"></i> {{ title }}
+            </h1>
+            <p class="text-muted mt-2">Remplissez le formulaire ci-dessous pour {% if student %}modifier{% else %}ajouter{% endif %} un élève</p>
+        </div>
+        <a href="{% url 'core:students_list' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <!-- Alerts -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                <i class="bi bi-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Form Card -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-4">
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <!-- Form Sections -->
+                <div class="row g-4">
+                    <!-- Personal Information -->
+                    <div class="col-12">
+                        <h5 class="mb-3">
+                            <i class="bi bi-person-circle text-primary"></i> Informations personnelles
+                        </h5>
+                        <hr class="my-2">
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.name.id_for_label }}" class="form-label fw-500">
+                                {{ form.name.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.name.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.phone.id_for_label }}" class="form-label fw-500">
+                                {{ form.phone.label }}
+                            </label>
+                            {{ form.phone }}
+                            {% if form.phone.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.phone.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.date_of_birth.id_for_label }}" class="form-label fw-500">
+                                {{ form.date_of_birth.label }}
+                            </label>
+                            {{ form.date_of_birth }}
+                            {% if form.date_of_birth.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.date_of_birth.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.address.id_for_label }}" class="form-label fw-500">
+                                {{ form.address.label }}
+                            </label>
+                            {{ form.address }}
+                            {% if form.address.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.address.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Parent Information -->
+                    <div class="col-12 mt-3">
+                        <h5 class="mb-3">
+                            <i class="bi bi-people-fill text-info"></i> Informations du parent/tuteur
+                        </h5>
+                        <hr class="my-2">
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.parent_name.id_for_label }}" class="form-label fw-500">
+                                {{ form.parent_name.label }}
+                            </label>
+                            {{ form.parent_name }}
+                            {% if form.parent_name.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.parent_name.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="{{ form.parent_contact.id_for_label }}" class="form-label fw-500">
+                                {{ form.parent_contact.label }} <span class="text-danger">*</span>
+                            </label>
+                            {{ form.parent_contact }}
+                            {% if form.parent_contact.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.parent_contact.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Additional Information -->
+                    <div class="col-12 mt-3">
+                        <h5 class="mb-3">
+                            <i class="bi bi-file-text text-warning"></i> Informations supplémentaires
+                        </h5>
+                        <hr class="my-2">
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-group">
+                            <label for="{{ form.notes.id_for_label }}" class="form-label fw-500">
+                                {{ form.notes.label }}
+                            </label>
+                            {{ form.notes }}
+                            <small class="form-text text-muted d-block mt-2">
+                                Ajoutez des notes importantes sur l'élève (allergies, comportement, etc.)
+                            </small>
+                            {% if form.notes.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.notes.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="col-12 mt-3">
+                        <h5 class="mb-3">
+                            <i class="bi bi-toggle2-on text-success"></i> Statut
+                        </h5>
+                        <hr class="my-2">
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            {{ form.is_active }}
+                            <label class="form-check-label fw-500" for="{{ form.is_active.id_for_label }}">
+                                <span class="badge bg-success">Actif</span> Cet élève est actuellement inscrit
+                            </label>
+                            {% if form.is_active.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.is_active.errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="col-12 mt-4">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-check-lg"></i> {{ button_text }}
+                            </button>
+                            <a href="{% url 'core:students_list' %}" class="btn btn-secondary btn-lg">
+                                <i class="bi bi-x-lg"></i> Annuler
+                            </a>
+                            {% if student %}
+                                <a href="{% url 'core:student_delete_confirm' student.id %}" class="btn btn-danger btn-lg ms-auto">
+                                    <i class="bi bi-trash"></i> Supprimer
+                                </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .fw-500 {
+        font-weight: 500;
+    }
+
+    .form-control:focus,
+    .form-select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+
+    .card {
+        border-radius: 0.5rem;
+    }
+
+    h5 {
+        font-weight: 600;
+        color: #2c3e50;
+    }
+</style>
+{% endblock %}

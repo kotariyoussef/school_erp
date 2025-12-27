@@ -1,0 +1,117 @@
+{% extends 'core/base.html' %}
+{% block title %}Dashboard - School ERP{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-speedometer2"></i> Tableau de Bord</h1>
+        <span class="text-muted">Bienvenue au système de gestion scolaire</span>
+    </div>
+
+    <!-- KPI Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="kpi-card">
+                <div class="kpi-label"><i class="bi bi-currency-dollar"></i> Recette du mois</div>
+                <div class="kpi-value">{{ stats.revenue.month|floatformat:0 }} DH</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="kpi-card">
+                <div class="kpi-label"><i class="bi bi-people-fill"></i> Élèves actifs</div>
+                <div class="kpi-value">{{ stats.counts.students }}</div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="kpi-card">
+                <div class="kpi-label"><i class="bi bi-exclamation-circle"></i> Impayés</div>
+                <div class="kpi-value text-danger">{{ stats.alerts.unpaid_count }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Second Row Stats -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card p-3">
+                <small class="text-muted">Recette aujourd'hui</small>
+                <div class="h5 mt-2">{{ stats.revenue.today|floatformat:0 }} DH</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card p-3">
+                <small class="text-muted">Professeurs</small>
+                <div class="h5 mt-2">{{ stats.counts.teachers }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card p-3">
+                <small class="text-muted">Groupes de cours</small>
+                <div class="h5 mt-2">{{ stats.counts.courses }}</div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card p-3">
+                <small class="text-muted">Montant dû</small>
+                <div class="h5 mt-2 text-danger">{{ stats.alerts.unpaid_amount|floatformat:0 }} DH</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Red List -->
+    <div class="card">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Liste Rouge — Élèves impayés</h5>
+        </div>
+        <div class="card-body">
+            {% if red_list %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Élève</th>
+                                <th>Parent</th>
+                                <th>Dû</th>
+                                <th>Payé</th>
+                                <th>Restant</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in red_list %}
+                                <tr>
+                                    <td><strong>{{ item.student.name }}</strong></td>
+                                    <td>{{ item.student.parent_contact }}</td>
+                                    <td><span class="badge bg-info">{{ item.required }} DH</span></td>
+                                    <td><span class="badge bg-success">{{ item.paid }} DH</span></td>
+                                    <td><span class="badge bg-danger">{{ item.remaining }} DH</span></td>
+                                    <td>
+                                        {% if item.status == 'UNPAID' %}
+                                            <span class="badge-status bg-danger">Non payé</span>
+                                        {% else %}
+                                            <span class="badge-status bg-warning">Partiel</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="/students/{{ item.student.id }}/" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-eye"></i> Détails
+                                        </a>
+                                        <a href="/cashier/payment/create/?student_id={{ item.student.id }}" class="btn btn-sm btn-success">
+                                            <i class="bi bi-currency-dollar"></i> Payer
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-success mb-0">
+                    <i class="bi bi-check-circle"></i> Tous les élèves sont à jour!
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends 'core/base.html' %}
+{% block title %}Session Saved - School ERP{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="alert alert-success">Session enregistrée avec succès.</div>
+      <div class="card">
+        <div class="card-body">
+          <h5>Détails de la session</h5>
+          <p><strong>Groupe:</strong> {{ session.group.name }}</p>
+          <p><strong>Professeur:</strong> {{ session.group.teacher.name }}</p>
+          <p><strong>Salle:</strong> {{ session.group.room.name }}</p>
+          <p><strong>Date:</strong> {{ session.date }}</p>
+          <p><strong>Heure:</strong> {{ session.start_time }} - {{ session.end_time }}</p>
+          <a href="{% url 'core:sessions_schedule' %}" class="btn btn-primary">Retour au planning</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

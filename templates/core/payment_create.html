@@ -1,0 +1,106 @@
+{% extends 'core/base.html' %}
+{% block title %}Encaissement - Caisse{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="bi bi-currency-dollar"></i> Encaissement de Paiement</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="payment-form">
+                        {% csrf_token %}
+
+                        <!-- Student Search -->
+                        <div class="mb-3">
+                            <label for="student" class="form-label">Rechercher Élève</label>
+                            <select id="student" name="student_id" style="width:100%" class="form-control" required></select>
+                        </div>
+
+                        <!-- Student Info Display -->
+                        <div id="student-info" style="display:none" class="mb-3 p-3 bg-light rounded">
+                            <strong id="student-name" class="d-block mb-2"></strong>
+                            <small class="text-muted d-block mb-2">Groupes inscrits:</small>
+                            <div id="student-groups"></div>
+                        </div>
+
+                        <!-- Amount -->
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Montant à payer (DH)</label>
+                            <input type="number" step="0.01" name="amount" id="amount" class="form-control" placeholder="0.00" required />
+                            <small class="form-text text-muted">Montant automatiquement proposé selon les groupes</small>
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="mb-3">
+                            <label for="payment_method" class="form-label">Mode de paiement</label>
+                            <select name="payment_method" id="payment_method" class="form-select">
+                                <option value="CASH">💵 Espèces</option>
+                                <option value="TRANSFER">🏦 Virement Bancaire</option>
+                                <option value="CHECK">📋 Chèque</option>
+                            </select>
+                        </div>
+
+                        <!-- Submit -->
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="bi bi-check-circle"></i> Confirmer le paiement et générer reçu (PDF)
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function () {
+    $('#student').select2({
+        placeholder: 'Tapez le nom de l\'élève...',
+        ajax: {
+            url: '/cashier/student-search/',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return { q: params.term };
+            },
+            processResults: function (data) {
+                return { results: data.results };
+            }
+        },
+        minimumInputLength: 0
+    });
+
+    $('#student').on('select2:select', function (e) {
+        loadStudentInfo(e.params.data.id);
+    });
+
+    function loadStudentInfo(studentId) {
+        $.get('/cashier/student-detail/', { id: studentId }, function (data) {
+            $('#student-info').show();
+            $('#student-name').text(data.name + ' — ' + data.parent_contact);
+            $('#student-groups').html('');
+            data.groups.forEach(function (g) {
+                $('#student-groups').append(
+                    '<div><i class="bi bi-book"></i> ' + g.name + ' — <strong>' + g.price + ' DH</strong></div>'
+                );
+            });
+            $('#amount').val(data.required);
+            });
+        }
+
+        /* 🔥 AUTO-SELECT student from GET parameter */
+        const defaultStudentId = "{{ default_student_id|default:'' }}";
+
+        if (defaultStudentId) {
+            $.get('/cashier/student-detail/', { id: defaultStudentId }, function (data) {
+                const option = new Option(data.name, data.id, true, true);
+                $('#student').append(option).trigger('change');
+                loadStudentInfo(data.id);
+            });
+        }
+
+    });
+</script>
+{% endblock %}

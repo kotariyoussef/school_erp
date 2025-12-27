@@ -1,0 +1,85 @@
+{% extends 'core/base.html' %}
+{% block title %}Liste des Cours - School ERP{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-book"></i> Liste des Cours</h1>
+        <a href="/admin/core/coursegroup/add/" class="btn btn-primary" target="_blank">
+            <i class="bi bi-plus-circle"></i> Ajouter un cours
+        </a>
+    </div>
+
+    <div class="mb-3">
+        <form method="get" class="row g-2">
+            <div class="col-md-4">{{ filter.form.name }}</div>
+            <div class="col-md-3">{{ filter.form.teacher }}</div>
+            <div class="col-md-3">{{ filter.form.room }}</div>
+            <div class="col-md-2 d-grid"><button class="btn btn-primary">Filtrer</button></div>
+        </form>
+    </div>
+
+    {% if courses %}
+        <div class="row">
+            {% for course in courses %}
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ course.name }}</h5>
+                            <p class="text-muted small mb-3">{{ course.level }}</p>
+                            
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-info">Professeur</span>
+                                    <span>{{ course.teacher.name }}</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-warning">Salle</span>
+                                    <span>{{ course.room.name }}</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-success">Tarif</span>
+                                    <strong>{{ course.price_per_month }} DH/mois</strong>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-secondary">Élèves inscrits</span>
+                                    <span><strong>{{ course.enrollment_count }}</strong></span>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <div class="d-flex gap-2">
+                                <a href="/admin/core/coursegroup/{{ course.id }}/change/" class="btn btn-sm btn-outline-primary" target="_blank">
+                                    <i class="bi bi-pencil"></i> Éditer
+                                </a>
+                                <a href="/admin/core/coursegroup/{{ course.id }}/delete/" class="btn btn-sm btn-outline-danger" target="_blank">
+                                    <i class="bi bi-trash"></i> Supprimer
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                <p class="mt-3">Aucun cours trouvé.</p>
+                <a href="/admin/core/coursegroup/add/" class="btn btn-primary btn-sm" target="_blank">
+                    <i class="bi bi-plus"></i> Créer le premier cours
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

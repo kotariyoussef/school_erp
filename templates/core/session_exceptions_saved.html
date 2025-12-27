@@ -1,0 +1,28 @@
+{% extends 'core/base.html' %}
+{% block title %}Exception Saved - School ERP{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="alert alert-success">
+        <h5><i class="bi bi-check-circle"></i> Exception enregistrée avec succès</h5>
+        <p>Les sessions affectées ont été régénérées.</p>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <h6>{{ group.name }}</h6>
+          <p class="text-muted mb-0">{{ date|date:"d/m/Y" }}</p>
+        </div>
+      </div>
+      <div class="mt-4">
+        <a href="{% url 'core:session_exceptions_list' %}" class="btn btn-primary">
+          <i class="bi bi-list-check"></i> Retour aux exceptions
+        </a>
+        <a href="{% url 'core:sessions_schedule' %}" class="btn btn-secondary">
+          <i class="bi bi-calendar3"></i> Voir le planning
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

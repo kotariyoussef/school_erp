@@ -1,0 +1,530 @@
+{% extends 'core/base.html' %}
+{% load courses %}
+{% block title %}{{ student.name }} - Student Profile - School ERP{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <!-- Header Card -->
+  <div class="card mb-4 border-0 shadow-sm">
+    <div class="card-body">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <h1 class="mb-2">{{ student.name }}</h1>
+          <p class="text-muted mb-0">
+            <i class="bi bi-telephone"></i> {{ student.parent_contact }}
+            {% if student.parent_name %}
+              <br><i class="bi bi-person"></i> Parent: {{ student.parent_name }}
+            {% endif %}
+          </p>
+        </div>
+        <div class="col-md-6 text-end">
+          <div class="badge bg-success p-3 me-2" title="Enrolled in courses">
+            <i class="bi bi-book"></i>
+            <strong>{{ total_enrolled }}</strong> Groupes
+          </div>
+          <div class="badge p-3" title="Payment Status" style="background-color: 
+            {% if payment_status.status == 'OK' %}#28a745{% elif payment_status.status == 'PARTIAL' %}#ffc107{% else %}#dc3545{% endif %};">
+            <i class="bi bi-credit-card"></i>
+            {% if payment_status.status == 'OK' %}
+              <strong>✓ Payé</strong>
+            {% elif payment_status.status == 'PARTIAL' %}
+              <strong>⚠ Partiel</strong>
+            {% else %}
+              <strong>✗ Impayé</strong>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Stats Row -->
+  <div class="row g-3 mb-4">
+    <!-- Attendance -->
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <small class="text-muted">Assiduité (30 jours)</small>
+              <h3 class="mb-1">{{ attendance_rate }}%</h3>
+              <small>{{ attended_classes }}/{{ total_classes }} cours</small>
+            </div>
+            <div style="font-size: 2rem; {% if attendance_rate >= 80 %}color: #28a745{% elif attendance_rate >= 60 %}color: #ffc107{% else %}color: #dc3545{% endif %}">
+              <i class="bi bi-check-circle-fill"></i>
+            </div>
+          </div>
+          <div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar {% if attendance_rate >= 80 %}bg-success{% elif attendance_rate >= 60 %}bg-warning{% else %}bg-danger{% endif %}" 
+                 style="width: {{ attendance_rate }}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Month Payment -->
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <small class="text-muted">Ce mois-ci</small>
+          <h3 class="mb-1">{{ payment_status.paid|floatformat:0 }} / {{ payment_status.required|floatformat:0 }} DH</h3>
+          <small>Restant: <strong>{{ payment_status.remaining|floatformat:0 }} DH</strong></small>
+          <div class="progress mt-2" style="height: 6px;">
+            <div class="progress-bar bg-info" style="width: {{ payment_status.percentage }}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Average -->
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <small class="text-muted">Frais mensuels</small>
+          <h3 class="mb-1">{{ payment_status.required|floatformat:0 }} DH</h3>
+          <small>Total des inscriptions actives</small>
+          <div class="mt-2">
+            {% for em in enrollments %}
+              <small class="badge bg-light text-dark">{{ em.course_group.monthly_price|floatformat:0 }} DH</small>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <ul class="nav nav-tabs mb-4" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="enrollments-tab" data-bs-toggle="tab" data-bs-target="#enrollments" type="button">
+        <i class="bi bi-book-half"></i> Cours ({{ total_enrolled }})
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button">
+        <i class="bi bi-calendar-check"></i> Assiduité
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="payments-tab" data-bs-toggle="tab" data-bs-target="#payments" type="button">
+        <i class="bi bi-receipt"></i> Paiements
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button">
+        <i class="bi bi-info-circle"></i> Informations
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab Content -->
+  <div class="tab-content">
+    <!-- Enrollments Tab -->
+    <div class="tab-pane fade show active" id="enrollments" role="tabpanel">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Groupes inscrits</h5>
+          <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#enrollmentModal">
+            <i class="bi bi-plus-lg"></i> Ajouter cours
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Nom du cours</th>
+                <th>Matière</th>
+                <th>Niveau</th>
+                <th>Professeur</th>
+                <th>Horaire</th>
+                <th>Salle</th>
+                <th>Prix/mois</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for enrollment in enrollments %}
+                <tr>
+                  <td><strong>{{ enrollment.course_group.name }}</strong></td>
+                  <td>{{ enrollment.course_group.subject }}</td>
+                  <td><small class="badge bg-light text-dark">{{ enrollment.course_group.level }}</small></td>
+                  <td>{{ enrollment.course_group.teacher.name }}</td>
+                  <td>
+                    <small>{{ enrollment.course_group.get_schedule_day_display }}
+                      {{ enrollment.course_group.start_time|time:"H:i" }}-{{ enrollment.course_group.end_time|time:"H:i" }}</small>
+                  </td>
+                  <td>{{ enrollment.course_group.room.name }}</td>
+                  <td><strong>{{ enrollment.course_group.monthly_price }} DH</strong></td>
+                  <td>
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="removeEnrollment({{ enrollment.id }}, '{{ enrollment.course_group.name|escapejs }}')">
+                      <i class="bi bi-trash"></i> Retirer
+                    </button>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">
+                    Aucun cours. <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#enrollmentModal">Ajouter un cours</button>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Tab -->
+    <div class="tab-pane fade" id="attendance" role="tabpanel">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-light">
+              <h5 class="mb-0">Résumé des 30 derniers jours</h5>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <div class="d-flex justify-content-between mb-2">
+                  <span>Présent</span>
+                  <strong>{{ attended_classes }}/{{ total_classes }}</strong>
+                </div>
+                <div class="progress">
+                  <div class="progress-bar bg-success" style="width: {{ attendance_rate }}%"></div>
+                </div>
+              </div>
+              <div class="row text-center">
+                <div class="col-6">
+                  <div class="fs-5" style="color: #28a745;"><strong>{{ attended_classes }}</strong></div>
+                  <small class="text-muted">Cours suivis</small>
+                </div>
+                <div class="col-6">
+                  <div class="fs-5" style="color: #dc3545;"><strong>{{ total_classes|add:'-'|add:attended_classes }}</strong></div>
+                  <small class="text-muted">Absences</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+              <h5 class="mb-0">Par cours</h5>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Cours</th>
+                    <th class="text-end">Taux</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for enrollment in enrollments %}
+                    {% with rate=enrollment.course_group.students.count %}
+                      <tr>
+                        <td><small>{{ enrollment.course_group.name }}</small></td>
+                        <td class="text-end"><small>--</small></td>
+                      </tr>
+                    {% endwith %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payments Tab -->
+    <div class="tab-pane fade" id="payments" role="tabpanel">
+      <!-- Payment History Chart -->
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-light">
+          <h5 class="mb-0">Historique des 6 derniers mois</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Mois</th>
+                  <th class="text-end">Requis</th>
+                  <th class="text-end">Payé</th>
+                  <th class="text-end">Restant</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for pm in payment_months %}
+                  <tr>
+                    <td><strong>{{ pm.month }}</strong></td>
+                    <td class="text-end">{{ pm.required|floatformat:0 }} DH</td>
+                    <td class="text-end"><strong style="color: {% if pm.status == 'OK' %}#28a745{% elif pm.status == 'PARTIAL' %}#ffc107{% else %}#999{% endif %}">{{ pm.paid|floatformat:0 }} DH</strong></td>
+                    <td class="text-end">{{ pm.required|add:'-'|add:pm.paid|floatformat:0 }} DH</td>
+                    <td>
+                      <span class="badge {% if pm.status == 'OK' %}bg-success{% elif pm.status == 'PARTIAL' %}bg-warning{% else %}bg-light text-dark{% endif %}">
+                        {% if pm.status == 'OK' %}✓ OK{% elif pm.status == 'PARTIAL' %}⚠ Partiel{% else %}Aucun{% endif %}
+                      </span>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Payments -->
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Derniers paiements</h5>
+          <a href="{% url 'core:payment_create' %}?student_id={{ student.id }}" class="btn btn-sm btn-success">
+            <i class="bi bi-plus-lg"></i> Ajouter paiement
+          </a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>N° Reçu</th>
+                <th>Date</th>
+                <th>Mois couvert</th>
+                <th class="text-end">Montant</th>
+                <th>Mode</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for payment in payments %}
+                <tr>
+                  <td><strong>{{ payment.receipt_number }}</strong></td>
+                  <td>{{ payment.payment_date|date:"d/m/Y" }}</td>
+                  <td>{{ payment.month_covered|date:"b Y" }}</td>
+                  <td class="text-end"><strong>{{ payment.amount }} DH</strong></td>
+                  <td><small>{{ payment.get_payment_method_display }}</small></td>
+                  <td>
+                    <span class="badge {% if payment.status == 'PAID' %}bg-success{% else %}bg-secondary{% endif %}">
+                      {{ payment.get_status_display }}
+                    </span>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">Aucun paiement enregistré</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if payments.has_other_pages %}
+          <nav class="card-footer bg-light" aria-label="Page navigation">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+              {% if payments.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?page=1">Première</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ payments.previous_page_number }}">Précédente</a>
+                </li>
+              {% endif %}
+              
+              <li class="page-item disabled">
+                <span class="page-link">Page {{ payments.number }}/{{ payments.paginator.num_pages }}</span>
+              </li>
+              
+              {% if payments.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ payments.next_page_number }}">Suivante</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ payments.paginator.num_pages }}">Dernière</a>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Info Tab -->
+    <div class="tab-pane fade" id="info" role="tabpanel">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-light">
+              <h5 class="mb-0">Informations personnelles</h5>
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <small class="text-muted">Nom complet</small>
+                <p class="mb-0"><strong>{{ student.name }}</strong></p>
+              </div>
+              {% if student.phone %}
+                <div class="mb-3">
+                  <small class="text-muted">Téléphone élève</small>
+                  <p class="mb-0"><strong>{{ student.phone }}</strong></p>
+                </div>
+              {% endif %}
+              {% if student.date_of_birth %}
+                <div class="mb-3">
+                  <small class="text-muted">Date de naissance</small>
+                  <p class="mb-0"><strong>{{ student.date_of_birth|date:"d/m/Y" }}</strong></p>
+                </div>
+              {% endif %}
+              <div class="mb-3">
+                <small class="text-muted">Inscrit depuis</small>
+                <p class="mb-0"><strong>{{ student.created_at|date:"d/m/Y" }}</strong></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-header bg-light">
+              <h5 class="mb-0">Contact du parent</h5>
+            </div>
+            <div class="card-body">
+              {% if student.parent_name %}
+                <div class="mb-3">
+                  <small class="text-muted">Nom du parent</small>
+                  <p class="mb-0"><strong>{{ student.parent_name }}</strong></p>
+                </div>
+              {% endif %}
+              <div class="mb-3">
+                <small class="text-muted">Téléphone du parent</small>
+                <p class="mb-0"><strong>{{ student.parent_contact }}</strong></p>
+              </div>
+              {% if student.address %}
+                <div class="mb-3">
+                  <small class="text-muted">Adresse</small>
+                  <p class="mb-0"><strong>{{ student.address }}</strong></p>
+                </div>
+              {% endif %}
+              {% if student.notes %}
+                <div class="mb-0">
+                  <small class="text-muted">Notes</small>
+                  <p class="mb-0">{{ student.notes }}</p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="mt-4 d-flex gap-2">
+    <a href="{% url 'core:students_list' %}" class="btn btn-secondary">
+      <i class="bi bi-arrow-left"></i> Retour à la liste
+    </a>
+    <a href="{% url 'core:student_edit' student.id %}" class="btn btn-outline-primary">
+      <i class="bi bi-pencil"></i> Éditer profil
+    </a>
+    <a href="{% url 'core:payment_create' %}?student_id={{ student.id }}" class="btn btn-outline-success">
+      <i class="bi bi-credit-card"></i> Ajouter paiement
+    </a>
+  </div>
+</div>
+
+<!-- Add Enrollment Modal -->
+<div class="modal fade" id="enrollmentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-light">
+        <h5 class="modal-title">
+          <i class="bi bi-book-plus"></i> Inscrire à un cours
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'core:enrollment_add' student.id %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="alert alert-info small">
+            <i class="bi bi-info-circle"></i>
+            Sélectionnez un groupe de cours pour inscrire cet élève.
+          </div>
+          <div class="mb-3">
+            <label for="courseSelect" class="form-label">
+              <i class="bi bi-collection"></i> Groupe de cours
+            </label>
+            <select id="courseSelect" name="course_group_id" class="form-select" required>
+              <option value="">-- Sélectionner un cours --</option>
+              {% load_courses student as courses %}
+              {% for course in courses %}
+                <option value="{{ course.id }}">
+                  {{ course.name }} - {{ course.subject }} ({{ course.get_schedule_day_display }} {{ course.start_time|time:"H:i" }})
+                </option>
+              {% empty %}
+                <option disabled>Aucun cours disponible</option>
+              {% endfor %}
+            </select>
+            <small class="form-text text-muted d-block mt-2">
+              Les cours déjà inscrits n'apparaissent pas dans cette liste.
+            </small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-lg"></i> Inscrire
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Remove Enrollment Modal -->
+<div class="modal fade" id="removeEnrollmentModal" tabindex="-1">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-exclamation-triangle"></i> Retirer l'inscription
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Êtes-vous sûr de vouloir retirer <strong id="enrollmentCourseName"></strong> pour cet élève ?</p>
+        <div class="alert alert-warning small mb-0">
+          <i class="bi bi-info-circle"></i> Cette action ne supprimera pas les enregistrements de présence existants.
+        </div>
+      </div>
+      <form method="post" id="removeEnrollmentForm">
+        {% csrf_token %}
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-danger">
+            <i class="bi bi-trash"></i> Retirer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function removeEnrollment(enrollmentId, courseName) {
+    const modal = new bootstrap.Modal(
+      document.getElementById('removeEnrollmentModal')
+    );
+
+    document.getElementById('enrollmentCourseName').textContent = courseName;
+
+    const form = document.getElementById('removeEnrollmentForm');
+    form.action = enrollmentRemoveUrlTemplate.replace('/0/', `/${enrollmentId}/`);
+
+    modal.show();
+  }
+
+  // Load courses from backend (AJAX would be better but this works for demo)
+  document.addEventListener('DOMContentLoaded', function() {
+    const courseSelect = document.getElementById('courseSelect');
+    if (courseSelect && courseSelect.options.length === 2) { // Only default option
+      // Trigger AJAX to load courses (optional enhancement)
+    }
+  });
+</script>
+{% endblock %}

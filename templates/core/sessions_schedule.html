@@ -1,0 +1,119 @@
+{% extends 'core/base.html' %}
+{% block title %}Planification - School ERP{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-calendar3"></i> Planification Hebdomadaire</h1>
+        <div class="d-flex gap-2">
+            <a href="{% url 'core:session_generate_bulk' %}" class="btn btn-success">
+                <i class="bi bi-gear"></i> Générer sessions
+            </a>
+            <a href="{% url 'core:session_exceptions_list' %}" class="btn btn-warning">
+                <i class="bi bi-exclamation-triangle"></i> Exceptions
+            </a>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="?week={{ prev_week|date:'Y-m-d' }}" class="btn btn-outline-secondary">
+                <i class="bi bi-chevron-left"></i> Semaine précédente
+            </a>
+            <span class="mx-3">
+                <strong>{{ week_start|date:"d/m/Y" }} - {{ week_end|date:"d/m/Y" }}</strong>
+            </span>
+            <a href="?week={{ next_week|date:'Y-m-d' }}" class="btn btn-outline-secondary">
+                Semaine suivante <i class="bi bi-chevron-right"></i>
+            </a>
+        </div>
+        <div style="max-width:420px;">
+            <form method="get" class="row g-2">
+                <div class="col-5">{{ filter.form.date_after }}</div>
+                <div class="col-5">{{ filter.form.date_before }}</div>
+                <div class="col-2 d-grid"><button class="btn btn-primary">Filtrer</button></div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 140px;">Salle</th>
+                        {% for label in date_labels %}
+                            <th class="text-center">
+                                <div>{{ label.weekday }}</div>
+                                <small class="text-muted">{{ label.date|date:"d/m" }}</small>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody style="height: 400px; overflow-y: auto;">
+                    {% for row in room_rows %}
+                        <tr>
+                            <td class="fw-bold">{{ row.room.name }}</td>
+                            {% for cell in row.cells %}
+                                <td class="p-2" style="vertical-align: top; {% if cell.date == today %}background-color: #f0f8ff;{% endif %}">
+                                    {% if cell.sessions %}
+                                        {% for sess in cell.sessions %}
+                                            <div class="badge bg-primary mb-1 d-block">
+                                                <i class="bi bi-clock"></i>
+                                                {{ sess.start_time|time:"H:i" }}-{{ sess.end_time|time:"H:i" }}
+                                            </div>
+                                            <small class="text-dark d-block mb-2">
+                                                <strong>{{ sess.group.name }}</strong><br>
+                                                {{ sess.group.teacher.name }}
+                                            </small>
+                                        {% endfor %}
+                                    {% else %}
+                                        <small class="text-muted">--</small>
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-4 row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Statistiques de la semaine</h5>
+                </div>
+                <div class="card-body">
+                    <p>
+                        <strong>Salles:</strong> {{ rooms|length }}<br>
+                        <strong>Sessions:</strong> 
+                        {% with total_sessions=0 %}
+                            {% for date_sched in schedule.values %}
+                                {% for room_sched in date_sched.values %}
+                                    {{ total_sessions|add:room_sched.sessions|length }}
+                                {% endfor %}
+                            {% endfor %}
+                        {% endwith %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'core:sessions_today' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-list-check"></i> Sessions d'aujourd'hui
+                    </a>
+                    <a href="?week={{ today|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-arrow-clockwise"></i> Semaine actuelle
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

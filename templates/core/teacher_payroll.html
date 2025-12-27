@@ -1,0 +1,107 @@
+{% extends 'core/base.html' %}
+{% block title %}Calcul de Paie - School ERP{% endblock %}
+{% block content %}
+<div class="container">
+    <h1><i class="bi bi-calculator"></i> Calcul de Paie</h1>
+
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Paramètres</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="row g-3">
+                        {% csrf_token %}
+                        <div class="col-12">
+                            <label class="form-label">Professeur</label>
+                            <select name="teacher_id" class="form-select" required>
+                                <option value="">-- Sélectionner --</option>
+                                {% for t in teacher_qs %}
+                                    <option value="{{ t.id }}">{{ t.name }} ({{ t.hourly_rate }} DH/h)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Date de début</label>
+                            <input type="date" name="start_date" class="form-control" required />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Date de fin</label>
+                            <input type="date" name="end_date" class="form-control" required />
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-calculator"></i> Calculer
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            {% if result %}
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Résultat du calcul</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="kpi-card">
+                                    <div class="kpi-label">Heures travaillées</div>
+                                    <div class="kpi-value">{{ result.total_hours|floatformat:1 }}h</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="kpi-card">
+                                    <div class="kpi-label">Tarif horaire</div>
+                                    <div class="kpi-value">{{ result.teacher.hourly_rate }} DH</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="kpi-card">
+                                    <div class="kpi-label">Total à payer</div>
+                                    <div class="kpi-value text-success">{{ result.total_pay|floatformat:2 }} DH</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <h6>Sessions travaillées ({{ result.sessions|length }})</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Groupe</th>
+                                        <th>Horaire</th>
+                                        <th>Heures</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in result.sessions %}
+                                        <tr>
+                                            <td>{{ item.session.date|date:"d/m/Y" }}</td>
+                                            <td>{{ item.session.group.name }}</td>
+                                            <td>{{ item.session.start_time|time:"H:i" }}-{{ item.session.end_time|time:"H:i" }}</td>
+                                            <td><strong>{{ item.hours|floatformat:1 }}h</strong></td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center text-muted py-5">
+                        <i class="bi bi-info-circle" style="font-size:2rem;"></i>
+                        <p class="mt-3">Remplissez les paramètres et cliquez sur "Calculer" pour voir le détail de la paie.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
