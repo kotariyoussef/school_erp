@@ -1,71 +1,359 @@
 {% extends 'core/base.html' %}
-{% block title %}Sessions Aujourd'hui{% endblock %}
+{% load static %}
+{% block title %}Sessions - {{ view_date|date:"d/m/Y" }}{% endblock %}
+
 {% block content %}
-<div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1><i class="bi bi-calendar2-event"></i> Sessions - {{ today|date:"d/m/Y" }}</h1>
+<div class="container-fluid py-4">
+  
+  <!-- Header with Date Navigation -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h3 mb-0">
+        <i class="bi bi-calendar2-event"></i> 
+        Sessions du {{ view_date|date:"l d F Y" }}
+      </h1>
+      {% if is_today %}
+        <span class="badge bg-success mt-2">
+          <i class="bi bi-calendar-check"></i> Aujourd'hui
+        </span>
+      {% elif view_date > today %}
+        <span class="badge bg-info mt-2">
+          <i class="bi bi-calendar-plus"></i> À venir
+        </span>
+      {% else %}
+        <span class="badge bg-secondary mt-2">
+          <i class="bi bi-calendar-x"></i> Passé
+        </span>
+      {% endif %}
     </div>
-
-    <div class="mb-3">
-        <form method="get" class="row g-2">
-            <div class="col-md-3">{{ filter.form.date_after }}</div>
-            <div class="col-md-3">{{ filter.form.date_before }}</div>
-            <div class="col-md-3">{{ filter.form.teacher }}</div>
-            <div class="col-md-2">{{ filter.form.room }}</div>
-            <div class="col-md-1 d-grid"><button class="btn btn-primary">Filtrer</button></div>
-        </form>
+    
+    <!-- Date Navigation -->
+    <div class="btn-group" role="group">
+      <a href="?{% if querystring %}{{ querystring }}&{% endif %}date={{ prev_day|date:'Y-m-d' }}" 
+         class="btn btn-outline-primary">
+        <i class="bi bi-chevron-left"></i> Jour précédent
+      </a>
+      
+      {% if not is_today %}
+        <a href="?{% if querystring %}{{ querystring }}{% endif %}" 
+           class="btn btn-outline-primary">
+          <i class="bi bi-calendar-check"></i> Aujourd'hui
+        </a>
+      {% endif %}
+      
+      <a href="?{% if querystring %}{{ querystring }}&{% endif %}date={{ next_day|date:'Y-m-d' }}" 
+         class="btn btn-outline-primary">
+        Jour suivant <i class="bi bi-chevron-right"></i>
+      </a>
     </div>
+  </div>
 
-    <div class="card">
+  <!-- Statistics Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm">
         <div class="card-body">
-            {% if sessions %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Groupe</th>
-                                <th>Salle</th>
-                                <th>Professeur</th>
-                                <th>Horaire</th>
-                                <th>Statut</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for s in sessions %}
-                                <tr>
-                                    <td><strong>{{ s.group.name }}</strong></td>
-                                    <td><span class="badge bg-secondary">{{ s.group.room.name }}</span></td>
-                                    <td>{{ s.group.teacher.name }}</td>
-                                    <td>
-                                        <i class="bi bi-clock"></i>
-                                        {{ s.start_time|time:"H:i" }} - {{ s.end_time|time:"H:i" }}
-                                    </td>
-                                    <td>
-                                        {% if s.status == 'DONE' %}
-                                            <span class="badge bg-success">✓ Terminée</span>
-                                        {% elif s.status == 'CANCELLED' %}
-                                            <span class="badge bg-danger">✗ Annulée</span>
-                                        {% else %}
-                                            <span class="badge bg-primary">Prévue</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <a href="/sessions/{{ s.id }}/attendance/" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-check2-circle"></i> Présence
-                                        </a>
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="alert alert-info mb-0">
-                    <i class="bi bi-info-circle"></i> Aucune session aujourd'hui
-                </div>
-            {% endif %}
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Total Sessions</h6>
+              <h2 class="mb-0">{{ stats.total }}</h2>
+            </div>
+            <div class="text-primary" style="font-size: 2rem;">
+              <i class="bi bi-calendar3"></i>
+            </div>
+          </div>
         </div>
+      </div>
     </div>
+    
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Prévues</h6>
+              <h2 class="mb-0">{{ stats.planned }}</h2>
+            </div>
+            <div class="text-info" style="font-size: 2rem;">
+              <i class="bi bi-clock"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Terminées</h6>
+              <h2 class="mb-0">{{ stats.done }}</h2>
+            </div>
+            <div class="text-success" style="font-size: 2rem;">
+              <i class="bi bi-check-circle"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="text-muted mb-0">Annulées</h6>
+              <h2 class="mb-0">{{ stats.cancelled }}</h2>
+            </div>
+            <div class="text-danger" style="font-size: 2rem;">
+              <i class="bi bi-x-circle"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Panel -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+      <h6 class="mb-0">
+        <i class="bi bi-funnel"></i> Filtres
+      </h6>
+      {% if filters_active %}
+        <a href="?date={{ view_date|date:'Y-m-d' }}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-x-circle"></i> Effacer filtres
+        </a>
+      {% endif %}
+    </div>
+    <div class="card-body">
+      <form method="get" id="filterForm" class="row g-3">
+        <!-- Preserve current date -->
+        <input type="hidden" name="date" value="{{ view_date|date:'Y-m-d' }}">
+        
+        <!-- Date Range -->
+        <div class="col-md-3">
+          <label class="form-label">
+            <i class="bi bi-calendar"></i> {{ filter.form.date_after.label }}
+          </label>
+          {{ filter.form.date_after }}
+        </div>
+        
+        <div class="col-md-3">
+          <label class="form-label">
+            <i class="bi bi-calendar"></i> {{ filter.form.date_before.label }}
+          </label>
+          {{ filter.form.date_before }}
+        </div>
+        
+        <!-- Room Filter -->
+        <div class="col-md-2">
+          <label class="form-label">
+            <i class="bi bi-door-open"></i> {{ filter.form.room.label }}
+          </label>
+          {{ filter.form.room }}
+        </div>
+        
+        <!-- Teacher Filter -->
+        <div class="col-md-2">
+          <label class="form-label">
+            <i class="bi bi-person"></i> {{ filter.form.teacher.label }}
+          </label>
+          {{ filter.form.teacher }}
+        </div>
+        
+        <!-- Status Filter -->
+        <div class="col-md-2">
+          <label class="form-label">
+            <i class="bi bi-flag"></i> {{ filter.form.status.label }}
+          </label>
+          {{ filter.form.status }}
+        </div>
+        
+        <!-- Group Name Search -->
+        <div class="col-md-6">
+          <label class="form-label">
+            <i class="bi bi-search"></i> {{ filter.form.group_name.label }}
+          </label>
+          {{ filter.form.group_name }}
+        </div>
+        
+        <!-- Submit Button -->
+        <div class="col-md-6">
+          <label class="form-label">&nbsp;</label>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-search"></i> Appliquer les filtres
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Active Filters Display -->
+  {% if filters_active %}
+    <div class="mb-3">
+      <div class="d-flex gap-2 flex-wrap">
+        <small class="text-muted align-self-center">Filtres actifs:</small>
+        {% if request.GET.room %}
+          <span class="badge bg-light text-dark border">
+            Salle: {{ filter.form.room.value }}
+            <a href="?date={{ view_date|date:'Y-m-d' }}{% for key, value in request.GET.items %}{% if key != 'room' and key != 'date' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="text-dark ms-1">×</a>
+          </span>
+        {% endif %}
+        {% if request.GET.teacher %}
+          <span class="badge bg-light text-dark border">
+            Professeur filtré
+            <a href="?date={{ view_date|date:'Y-m-d' }}{% for key, value in request.GET.items %}{% if key != 'teacher' and key != 'date' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="text-dark ms-1">×</a>
+          </span>
+        {% endif %}
+        {% if request.GET.status %}
+          <span class="badge bg-light text-dark border">
+            Statut: {{ request.GET.status }}
+            <a href="?date={{ view_date|date:'Y-m-d' }}{% for key, value in request.GET.items %}{% if key != 'status' and key != 'date' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="text-dark ms-1">×</a>
+          </span>
+        {% endif %}
+        {% if request.GET.group_name %}
+          <span class="badge bg-light text-dark border">
+            Recherche: "{{ request.GET.group_name }}"
+            <a href="?date={{ view_date|date:'Y-m-d' }}{% for key, value in request.GET.items %}{% if key != 'group_name' and key != 'date' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" class="text-dark ms-1">×</a>
+          </span>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- Sessions Table -->
+  <div class="card border-0 shadow-sm">
+    {% if sessions %}
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th><i class="bi bi-clock"></i> Horaire</th>
+              <th><i class="bi bi-book"></i> Groupe</th>
+              <th><i class="bi bi-door-open"></i> Salle</th>
+              <th><i class="bi bi-person"></i> Professeur</th>
+              <th><i class="bi bi-people"></i> Élèves</th>
+              <th><i class="bi bi-flag"></i> Statut</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for session in sessions %}
+              <tr>
+                <td>
+                  <strong class="text-primary">
+                    {{ session.start_time|time:"H:i" }} - {{ session.end_time|time:"H:i" }}
+                  </strong>
+                  <br>
+                  <small class="text-muted">
+                    {{ session.duration_hours|floatformat:1 }}h
+                  </small>
+                </td>
+                <td>
+                  <strong>{{ session.group.name }}</strong>
+                  <br>
+                  <small class="text-muted">
+                    {{ session.group.subject }} - {{ session.group.level }}
+                  </small>
+                </td>
+                <td>
+                  <span class="badge bg-secondary">
+                    <i class="bi bi-door-open"></i>
+                    {{ session.group.room.name }}
+                  </span>
+                </td>
+                <td>{{ session.group.teacher.name }}</td>
+                <td>
+                  <span class="badge bg-info">
+                    <i class="bi bi-people"></i>
+                    {{ session.group.students.count }}
+                  </span>
+                </td>
+                <td>
+                  {% if session.status == 'DONE' %}
+                    <span class="badge bg-success">
+                      <i class="bi bi-check-circle-fill"></i> Terminée
+                    </span>
+                  {% elif session.status == 'CANCELLED' %}
+                    <span class="badge bg-danger">
+                      <i class="bi bi-x-circle-fill"></i> Annulée
+                    </span>
+                  {% else %}
+                    <span class="badge bg-primary">
+                      <i class="bi bi-clock-fill"></i> Prévue
+                    </span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="btn-group btn-group-sm">
+                    <a href="{% url 'core:session_attendance' session.id %}" 
+                       class="btn btn-outline-primary"
+                       title="Gérer présences">
+                      <i class="bi bi-check2-circle"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="card-body">
+        <div class="alert alert-info mb-0 text-center py-5">
+          <i class="bi bi-info-circle" style="font-size: 3rem; opacity: 0.5;"></i>
+          <p class="mb-0 mt-3">
+            {% if filters_active %}
+              Aucune session trouvée avec ces filtres
+            {% else %}
+              Aucune session programmée pour cette date
+            {% endif %}
+          </p>
+          {% if filters_active %}
+            <small class="text-muted mt-2 d-block">
+              <a href="?date={{ view_date|date:'Y-m-d' }}">Effacer les filtres</a>
+            </small>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+  </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-submit on select change
+  const autoSubmitSelects = document.querySelectorAll('#filterForm select');
+  autoSubmitSelects.forEach(select => {
+    select.addEventListener('change', function() {
+      document.getElementById('filterForm').submit();
+    });
+  });
+});
+</script>
+
+<style>
+  .badge a {
+    text-decoration: none;
+  }
+  
+  .badge a:hover {
+    text-decoration: underline;
+  }
+  
+  .table tbody tr {
+    transition: background-color 0.2s;
+  }
+  
+  .table tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+  
+  .btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+</style>
 {% endblock %}

@@ -109,14 +109,67 @@ class RoomFilter(django_filters.FilterSet):
         model = Room
         fields = ['name', 'min_capacity']
 
-
 class SessionFilter(django_filters.FilterSet):
-    date_after = django_filters.DateFilter(field_name='date', lookup_expr='gte', label='Date depuis', widget=forms.DateInput(attrs={'type':'date','class':'form-control'}))
-    date_before = django_filters.DateFilter(field_name='date', lookup_expr='lte', label='Date jusqu\'à', widget=forms.DateInput(attrs={'type':'date','class':'form-control'}))
-    room = django_filters.ModelChoiceFilter(field_name='group__room', queryset=Room.objects.all(), label='Salle', widget=forms.Select(attrs={'class':'form-select'}))
-    teacher = django_filters.ModelChoiceFilter(field_name='group__teacher', queryset=Teacher.objects.all(), label='Professeur', widget=forms.Select(attrs={'class':'form-select'}))
-    status = django_filters.CharFilter(field_name='status', lookup_expr='iexact', label='Statut', widget=forms.TextInput(attrs={'class':'form-control', 'placeholder':'PLANNED, DONE, CANCELLED'}))
+    """Enhanced session filter with better options"""
+    
+    date_after = django_filters.DateFilter(
+        field_name='date', 
+        lookup_expr='gte', 
+        label='Date depuis',
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control'
+        })
+    )
+    
+    date_before = django_filters.DateFilter(
+        field_name='date', 
+        lookup_expr='lte', 
+        label='Date jusqu\'à',
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control'
+        })
+    )
+    
+    room = django_filters.ModelChoiceFilter(
+        field_name='group__room',
+        queryset=Room.objects.filter(is_active=True).order_by('name'),
+        label='Salle',
+        empty_label='-- Toutes les salles --',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    teacher = django_filters.ModelChoiceFilter(
+        field_name='group__teacher',
+        queryset=Teacher.objects.filter(is_active=True).order_by('name'),
+        label='Professeur',
+        empty_label='-- Tous les professeurs --',
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    status = django_filters.ChoiceFilter(
+        field_name='status',
+        label='Statut',
+        choices=[
+            ('', '-- Tous les statuts --'),
+            ('PLANNED', 'Prévue'),
+            ('DONE', 'Terminée'),
+            ('CANCELLED', 'Annulée'),
+        ],
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+    
+    group_name = django_filters.CharFilter(
+        field_name='group__name',
+        lookup_expr='icontains',
+        label='Nom du groupe',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Rechercher un groupe...'
+        })
+    )
 
     class Meta:
         model = Session
-        fields = ['date_after', 'date_before', 'room', 'teacher', 'status']
+        fields = ['date_after', 'date_before', 'room', 'teacher', 'status', 'group_name']

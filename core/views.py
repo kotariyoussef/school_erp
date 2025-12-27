@@ -5,6 +5,7 @@ from django.utils import timezone
 from datetime import datetime
 from django.db.models import Q, Count, Sum
 from decimal import Decimal
+from datetime import timedelta
 
 from .models import Student, Payment, Enrollment, Room
 from .utils import get_dashboard_stats, generate_receipt_pdf, calculate_student_monthly_total, generate_sessions_from_coursegroups
@@ -303,13 +304,77 @@ def student_page(request, student_id):
 
 
 def sessions_today(request):
-	"""List all sessions scheduled for today."""
-	today = timezone.now().date()
-	sessions_qs = Session.objects.filter(date=today).select_related('group', 'group__teacher', 'group__room')
-	session_filter = SessionFilter(request.GET, queryset=sessions_qs)
-	sessions = session_filter.qs
-	return render(request, 'core/sessions_today.html', {'sessions': sessions, 'today': today, 'filter': session_filter})
-
+    """Enhanced session view with navigation and statistics"""
+    
+    # Determine the date to display
+    date_param = request.GET.get('date')
+    if date_param:
+        try:
+            from datetime import datetime
+            view_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            view_date = timezone.now().date()
+    else:
+        view_date = timezone.now().date()
+    
+    today = timezone.now().date()
+    
+    # Calculate navigation dates
+    prev_day = view_date - timedelta(days=1)
+    next_day = view_date + timedelta(days=1)
+    
+    # Base queryset for the view date
+    sessions_qs = Session.objects.filter(
+        date=view_date
+    ).select_related(
+        'group',
+        'group__teacher',
+        'group__room'
+    ).prefetch_related(
+        'group__students'
+    ).order_by('start_time')
+    
+    # Apply filters
+    session_filter = SessionFilter(request.GET, queryset=sessions_qs)
+    sessions = session_filter.qs
+    
+    # Calculate statistics
+    stats = {
+        'total': sessions.count(),
+        'planned': sessions.filter(status='PLANNED').count(),
+        'done': sessions.filter(status='DONE').count(),
+        'cancelled': sessions.filter(status='CANCELLED').count(),
+    }
+    
+    # Check if any filters are active (excluding date parameter)
+    filters_active = any([
+        request.GET.get('date_after'),
+        request.GET.get('date_before'),
+        request.GET.get('room'),
+        request.GET.get('teacher'),
+        request.GET.get('status'),
+        request.GET.get('group_name'),
+    ])
+    
+    # Build querystring for navigation (preserve filters)
+    qs_dict = request.GET.copy()
+    qs_dict.pop('date', None)  # Remove date to add it dynamically
+    querystring = qs_dict.urlencode()
+    
+    context = {
+        'sessions': sessions,
+        'view_date': view_date,
+        'today': today,
+        'prev_day': prev_day,
+        'next_day': next_day,
+        'is_today': view_date == today,
+        'filter': session_filter,
+        'stats': stats,
+        'filters_active': filters_active,
+        'querystring': querystring,
+    }
+    
+    return render(request, 'core/sessions_today.html', context)
 
 @require_http_methods(['GET', 'POST'])
 def session_create(request):

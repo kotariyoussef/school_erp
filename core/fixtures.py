@@ -12,7 +12,7 @@ from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 
 # Importer les modèles
-from .models import Room, Teacher, CourseGroup, Student, Enrollment, Payment, Attendance, Session
+from .models import SessionException, Room, Teacher, CourseGroup, Student, Enrollment, Payment, Attendance, Session
 
 
 # ==================== DONNÉES DE BASE ====================
@@ -79,6 +79,136 @@ def random_date_in_range(start_date, end_date):
     days_diff = (end_date - start_date).days
     random_days = random.randint(0, days_diff)
     return start_date + timedelta(days=random_days)
+
+def generate_sessions_for_courses(courses=None, days_past=30, days_future=14):
+    """
+    Generate sessions for courses with better control and validation.
+    
+    Args:
+        courses: QuerySet of CourseGroup objects (defaults to all active)
+        days_past: Number of days in the past to generate (default: 30)
+        days_future: Number of days in the future to generate (default: 14)
+    
+    Returns:
+        int: Number of sessions created
+    """
+    print("\n🕒 Génération des sessions (historique + prochains jours)...")
+    
+    if courses is None:
+        courses = CourseGroup.objects.filter(is_active=True)
+    
+    sessions_count = 0
+    today = timezone.now().date()
+    sessions_start = today - timedelta(days=days_past)
+    sessions_end = today + timedelta(days=days_future)
+    
+    # Map schedule day codes to weekday numbers (0=Monday, 6=Sunday)
+    day_map = {
+        'MON': 0,
+        'TUE': 1,
+        'WED': 2,
+        'THU': 3,
+        'FRI': 4,
+        'SAT': 5,
+        'SUN': 6
+    }
+    
+    # Get all existing sessions to avoid duplicates (more efficient)
+    existing_sessions = set(
+        Session.objects.filter(
+            date__gte=sessions_start,
+            date__lte=sessions_end
+        ).values_list('group_id', 'date')
+    )
+    
+    # Get all exceptions to respect cancellations and overrides
+    exceptions = {}
+    for exc in SessionException.objects.filter(
+        course_group__in=courses,
+        date__gte=sessions_start,
+        date__lte=sessions_end
+    ).select_related('course_group'):
+        key = (exc.course_group_id, exc.date)
+        exceptions[key] = exc
+    
+    # Batch creation for better performance
+    sessions_to_create = []
+    
+    for course in courses:
+        expected_weekday = day_map.get(course.schedule_day)
+        
+        if expected_weekday is None:
+            print(f"⚠️  Jour invalide pour {course.name}: {course.schedule_day}")
+            continue
+        
+        # Iterate through date range
+        current_date = sessions_start
+        while current_date <= sessions_end:
+            # Check if this date matches the course's scheduled weekday
+            if current_date.weekday() == expected_weekday:
+                # Skip if session already exists
+                if (course.id, current_date) in existing_sessions:
+                    current_date += timedelta(days=1)
+                    continue
+                
+                # Check for exceptions
+                exc_key = (course.id, current_date)
+                if exc_key in exceptions:
+                    exc = exceptions[exc_key]
+                    
+                    # Skip if cancelled
+                    if exc.cancelled:
+                        current_date += timedelta(days=1)
+                        continue
+                    
+                    # Use exception overrides if present
+                    session_room = exc.override_room or course.room
+                    session_start = exc.override_start_time or course.start_time
+                    session_end = exc.override_end_time or course.end_time
+                else:
+                    # Use course defaults
+                    session_room = course.room
+                    session_start = course.start_time
+                    session_end = course.end_time
+                
+                # Determine status based on date
+                if current_date < today:
+                    # Past sessions: mostly DONE, small chance of cancellation
+                    status = 'DONE' if random.random() > 0.08 else 'CANCELLED'
+                elif current_date == today:
+                    status = 'PLANNED'
+                else:
+                    # Future sessions: all planned
+                    status = 'PLANNED'
+                
+                # Create session object (will be bulk created later)
+                sessions_to_create.append(
+                    Session(
+                        group=course,
+                        date=current_date,
+                        start_time=session_start,
+                        end_time=session_end,
+                        room=session_room if session_room != course.room else None,
+                        status=status,
+                    )
+                )
+                sessions_count += 1
+            
+            current_date += timedelta(days=1)
+    
+    # Bulk create all sessions
+    if sessions_to_create:
+        with transaction.atomic():
+            try:
+                Session.objects.bulk_create(sessions_to_create, ignore_conflicts=True)
+                print(f"✅ {sessions_count} sessions créées avec succès")
+            except Exception as e:
+                print(f"❌ Erreur lors de la création des sessions: {e}")
+                sessions_count = 0
+    else:
+        print("ℹ️  Aucune nouvelle session à créer")
+    
+    return sessions_count
 
 
 # ==================== FONCTION PRINCIPALE ====================
@@ -262,47 +392,8 @@ def generate_fixtures(
     print(f"\n   Total: {enrollments_count} inscriptions créées")
     
     # ==================== 6. SESSIONS (planning historique) ====================
-    print("\n🕒 Génération des sessions (historique + prochains jours)...")
-    sessions_count = 0
-    today = timezone.now().date()
-    sessions_start = today - timedelta(days=30)
-    sessions_end = today + timedelta(days=7)
-
-    # Map schedule day codes to weekday numbers
-    day_map_inv = {'MON':0, 'TUE':1, 'WED':2, 'THU':3, 'FRI':4, 'SAT':5, 'SUN':6}
-
-    for course in courses:
-        # iterate dates
-        for n in range((sessions_end - sessions_start).days + 1):
-            d = sessions_start + timedelta(days=n)
-            weekday = d.weekday()
-            # check if course scheduled this weekday
-            if day_map_inv.get(course.schedule_day, -1) != weekday:
-                continue
-
-            # determine status
-            if d < today:
-                # most past sessions are DONE, small chance cancelled
-                status = 'DONE' if random.random() > 0.08 else 'CANCELLED'
-            elif d == today:
-                status = 'PLANNED'
-            else:
-                status = 'PLANNED'
-
-            try:
-                Session.objects.create(
-                    group=course,
-                    date=d,
-                    start_time=course.start_time,
-                    end_time=course.end_time,
-                    status=status,
-                )
-                sessions_count += 1
-            except Exception:
-                # ignore duplicates or validation errors
-                continue
-
-    print(f"   Total: {sessions_count} sessions créées")
+    courses
+    generate_sessions_for_courses(courses=courses, days_past=30, days_future=14)
     
     # ==================== 6. PAIEMENTS ====================
     if generate_payments:
